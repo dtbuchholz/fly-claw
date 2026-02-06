@@ -14,7 +14,7 @@ if docker sandbox ls 2>/dev/null | grep -q "$SANDBOX_NAME"; then
     # Snapshot OpenClaw state to host before stopping
     echo "Snapshotting state..."
     mkdir -p "$STATE_DIR"
-    for dir in devices agents credentials cron; do
+    for dir in devices agents credentials cron telegram identity workspace; do
         docker sandbox exec "$SANDBOX_NAME" \
             bash -c "[ -d /home/agent/.openclaw/$dir ] && cp -r /home/agent/.openclaw/$dir \"$STATE_DIR/\" || true"
     done

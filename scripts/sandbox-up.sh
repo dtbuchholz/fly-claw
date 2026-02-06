@@ -67,14 +67,6 @@ else
         cp "$ROOT_DIR/config/openclaw.json" /home/agent/.openclaw/openclaw.json
 fi
 
-docker sandbox exec "$SANDBOX_NAME" \
-    bash -c "cp \"$ROOT_DIR/config/workspace/\"*.md /home/agent/.openclaw/workspace/ 2>/dev/null || true"
-
-# Copy skills into the sandbox
-docker sandbox exec "$SANDBOX_NAME" mkdir -p /home/agent/.openclaw/workspace/skills
-docker sandbox exec "$SANDBOX_NAME" \
-    bash -c "cp -r \"$ROOT_DIR/config/workspace/skills/\"* /home/agent/.openclaw/workspace/skills/ 2>/dev/null || true"
-
 # Lock down permissions (doctor warns if too open)
 docker sandbox exec "$SANDBOX_NAME" chmod 700 /home/agent/.openclaw
 docker sandbox exec "$SANDBOX_NAME" chmod 600 /home/agent/.openclaw/openclaw.json
@@ -83,13 +75,24 @@ docker sandbox exec "$SANDBOX_NAME" chmod 600 /home/agent/.openclaw/openclaw.jso
 STATE_DIR="$ROOT_DIR/state"
 if [ -d "$STATE_DIR" ]; then
     echo "Restoring persisted state..."
-    for dir in devices agents credentials cron; do
+    # Restore workspace first (bot-generated files like IDENTITY.md, USER.md)
+    if [ -d "$STATE_DIR/workspace" ]; then
+        docker sandbox exec "$SANDBOX_NAME" \
+            cp -r "$STATE_DIR/workspace" /home/agent/.openclaw/
+    fi
+    for dir in devices agents credentials cron telegram identity; do
         if [ -d "$STATE_DIR/$dir" ]; then
             docker sandbox exec "$SANDBOX_NAME" \
                 cp -r "$STATE_DIR/$dir" /home/agent/.openclaw/
         fi
     done
 fi
+
+# Overwrite workspace with repo files (AGENTS.md, SOUL.md, skills always win)
+docker sandbox exec "$SANDBOX_NAME" \
+    bash -c "cp \"$ROOT_DIR/config/workspace/\"*.md /home/agent/.openclaw/workspace/ 2>/dev/null || true"
+docker sandbox exec "$SANDBOX_NAME" \
+    bash -c "cp -r \"$ROOT_DIR/config/workspace/skills/\"* /home/agent/.openclaw/workspace/skills/ 2>/dev/null || true"
 
 # Run doctor --fix on first setup to initialize state dirs and finalize config
 docker sandbox exec \
