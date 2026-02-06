@@ -1,4 +1,4 @@
-.PHONY: build up down status logs shell reset onboard network-setup help
+.PHONY: build up down status logs shell reset restart onboard network-setup help
 
 SANDBOX_NAME ?= clawd
 WORKSPACE_DIR ?= $(shell pwd)
@@ -17,6 +17,7 @@ help:
 	@echo "  make status         Check sandbox and gateway health"
 	@echo "  make logs           Tail OpenClaw gateway logs"
 	@echo "  make shell          Interactive shell in sandbox"
+	@echo "  make restart        Restart gateway (no rebuild)"
 	@echo "  make reset          Destroy and recreate sandbox"
 	@echo ""
 	@echo "Config:"
@@ -39,17 +40,21 @@ logs:
 	@./scripts/sandbox-logs.sh $(SANDBOX_NAME)
 
 shell:
-	docker sandbox exec -it $(SANDBOX_NAME) bash
+	docker sandbox exec -it "$(SANDBOX_NAME)" bash
 
 reset: down
-	docker sandbox rm $(SANDBOX_NAME) 2>/dev/null || true
+	docker sandbox rm "$(SANDBOX_NAME)" 2>/dev/null || true
 	@$(MAKE) up
 
 onboard:
 	docker sandbox exec -it \
 		-e ANTHROPIC_API_KEY \
 		-e TELEGRAM_BOT_TOKEN \
-		$(SANDBOX_NAME) openclaw onboard
+		-e OPENCLAW_GATEWAY_TOKEN \
+		"$(SANDBOX_NAME)" openclaw onboard
+
+restart:
+	@./scripts/sandbox-up.sh "$(SANDBOX_NAME)" "$(WORKSPACE_DIR)" "$(TEMPLATE_TAG)"
 
 network-setup:
 	@./scripts/network-policy.sh $(SANDBOX_NAME)

@@ -48,7 +48,7 @@ docker sandbox exec "$SANDBOX_NAME" mkdir -p /home/agent/.openclaw/workspace
 docker sandbox exec "$SANDBOX_NAME" \
     cp "$ROOT_DIR/config/openclaw.json" /home/agent/.openclaw/openclaw.json
 docker sandbox exec "$SANDBOX_NAME" \
-    bash -c "cp $ROOT_DIR/config/workspace/*.md /home/agent/.openclaw/workspace/ 2>/dev/null || true"
+    bash -c "cp \"$ROOT_DIR/config/workspace/\"*.md /home/agent/.openclaw/workspace/ 2>/dev/null || true"
 
 # Restore persisted state if available (survives make reset)
 STATE_DIR="$ROOT_DIR/state"
@@ -74,6 +74,10 @@ docker sandbox exec \
 echo "Applying network policy..."
 "$SCRIPT_DIR/network-policy.sh" "$SANDBOX_NAME"
 
+# Kill existing gateway (no-op on fresh sandboxes)
+docker sandbox exec "$SANDBOX_NAME" pkill -f "openclaw gateway" 2>/dev/null || true
+sleep 1
+
 # Start the OpenClaw gateway
 echo "Starting OpenClaw gateway..."
 docker sandbox exec -d \
@@ -83,21 +87,24 @@ docker sandbox exec -d \
     "$SANDBOX_NAME" \
     bash -c 'openclaw gateway run --port 18789 > /tmp/openclaw-gateway.log 2>&1'
 
-# Wait and check health
+# Wait and check health (retry up to 10 times, 2s apart)
 echo "Waiting for gateway to start..."
-sleep 8
-
-if docker sandbox exec \
-    -e "ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}" \
-    -e "OPENCLAW_GATEWAY_TOKEN=${OPENCLAW_GATEWAY_TOKEN}" \
-    "$SANDBOX_NAME" \
-    openclaw health 2>/dev/null; then
-    echo ""
-    echo "=== Clawd is running ==="
-else
-    echo ""
-    echo "Gateway may still be starting. Check: make logs"
-fi
+for i in $(seq 1 10); do
+    sleep 2
+    if docker sandbox exec \
+        -e "ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}" \
+        -e "OPENCLAW_GATEWAY_TOKEN=${OPENCLAW_GATEWAY_TOKEN}" \
+        "$SANDBOX_NAME" \
+        openclaw health 2>/dev/null; then
+        echo ""
+        echo "=== Clawd is running ==="
+        break
+    fi
+    if [ "$i" -eq 10 ]; then
+        echo ""
+        echo "Gateway may still be starting. Check: make logs"
+    fi
+done
 
 echo "  Shell:  make shell"
 echo "  Logs:   make logs"
