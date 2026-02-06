@@ -27,13 +27,13 @@ Personal AI assistant ([OpenClaw](https://openclaw.ai)) running in a
         │                           │
         │ HTTPS                     │ HTTPS
         ▼                           ▼
-  api.telegram.org           api.anthropic.com
+  api.telegram.org           openrouter.ai
 ```
 
 ## Prerequisites
 
 - [Docker Desktop](https://www.docker.com/products/docker-desktop/) 4.58+ (with AI Sandbox support)
-- [Anthropic API key](https://console.anthropic.com/)
+- [OpenRouter API key](https://openrouter.ai/) (recommended) or [Anthropic API key](https://console.anthropic.com/)
 - [Telegram bot token](https://t.me/BotFather) (create via `/newbot`) — must be a **dedicated** token not used by any other running bot
 
 ## Quick Start
@@ -41,33 +41,56 @@ Personal AI assistant ([OpenClaw](https://openclaw.ai)) running in a
 ```bash
 # 1. Configure secrets
 cp .env.example .env
-# Edit .env — set ANTHROPIC_API_KEY and TELEGRAM_BOT_TOKEN
+# Edit .env — set OPENROUTER_API_KEY (or ANTHROPIC_API_KEY) and TELEGRAM_BOT_TOKEN
+# Set TELEGRAM_ALLOWED_IDS to your Telegram user ID (find it via @userinfobot)
 ```
 
 ```bash
 # 2. Build template + create sandbox + start gateway
 make up
-# Takes ~30s on first run (downloads base image + installs Node 22 + OpenClaw)
+# Takes ~2min on first run (downloads base image + installs Node 22 + Chromium + OpenClaw)
 # Subsequent runs use cached layers and finish in seconds
 ```
 
 ```bash
-# 3. DM your bot on Telegram
-# It will reply with a pairing code and your Telegram user ID:
-#   "Pairing code: XXXXXXXX"
-#   "Ask the bot owner to approve with: openclaw pairing approve telegram <code>"
+# 3. DM your bot on Telegram — it responds immediately
+# (Only users in TELEGRAM_ALLOWED_IDS can message it)
 ```
 
-```bash
-# 4. Approve the pairing from inside the sandbox
-make shell
-openclaw pairing approve telegram <CODE>
-exit
+## Changing the Model
+
+The model is set in `config/openclaw.json` under `agents.defaults.model.primary`.
+
+For **OpenRouter**, prefix the model slug with `openrouter/`:
+
+```json
+"agents": {
+  "defaults": {
+    "model": {
+      "primary": "openrouter/anthropic/claude-opus-4.5"
+    }
+  }
+}
 ```
 
-```bash
-# 5. Chat — your bot now responds to messages
-```
+To see all available models, run `make shell` then `openclaw models list --all --provider openrouter`.
+
+Common OpenRouter model IDs:
+
+| Model | OpenClaw value |
+| ----- | -------------- |
+| Claude Opus 4.5 | `openrouter/anthropic/claude-opus-4.5` |
+| Claude Opus 4.1 | `openrouter/anthropic/claude-opus-4.1` |
+| Claude Sonnet 4.5 | `openrouter/anthropic/claude-sonnet-4.5` |
+| Claude Sonnet 4 | `openrouter/anthropic/claude-sonnet-4` |
+| Claude Haiku 4.5 | `openrouter/anthropic/claude-haiku-4.5` |
+
+For **direct Anthropic**, use the model ID without a prefix (e.g. `anthropic/claude-sonnet-4-20250514`).
+
+Note: OpenClaw maintains its own model catalog. New models from OpenRouter may not appear
+immediately — check `openclaw models list --all` for what's currently supported.
+
+After changing the model, run `make reset` to apply.
 
 ## Commands
 
@@ -94,13 +117,14 @@ clawd/
 ├── CODEX.md                      # Codex CLI instructions
 │
 ├── template/
-│   └── Dockerfile                # Sandbox template (claude-code + Node 22 + OpenClaw)
+│   └── Dockerfile                # Sandbox template (claude-code + Node 22 + Chromium + OpenClaw)
 │
 ├── config/
 │   ├── openclaw.json             # Gateway config (no secrets)
 │   └── workspace/
 │       ├── AGENTS.md             # Bot personality (injected into OpenClaw)
-│       └── SOUL.md               # Bot identity
+│       ├── SOUL.md               # Bot identity
+│       └── skills/               # Custom skills (injected into OpenClaw)
 │
 └── scripts/
     ├── sandbox-up.sh             # Create sandbox, copy config, start gateway
@@ -114,17 +138,23 @@ clawd/
 
 **What runs inside the sandbox:** The Docker AI Sandbox is a microVM (not a container) with
 hypervisor-level isolation. Inside it, the OpenClaw gateway runs as a long-lived process handling
-Telegram messages, agent sessions, tools, and cron jobs.
+Telegram messages, agent sessions, tools, and cron jobs. Chromium is installed for browser automation.
 
 **Secrets flow:** `.env` (host, gitignored) → shell environment → `docker sandbox exec -e` →
-OpenClaw process. Secrets never touch committed files or the sandbox filesystem.
+OpenClaw process. API keys are also registered in the agent auth store via `openclaw onboard`
+during startup. Secrets never touch committed files.
 
-**Network policy:** Deny-by-default with an explicit allowlist: `api.anthropic.com`,
-`api.telegram.org`, `*.npmjs.org`, `github.com`. Configured via `scripts/network-policy.sh`.
+**Telegram access control:** Uses `dmPolicy: "allowlist"` — only Telegram user IDs listed in
+`TELEGRAM_ALLOWED_IDS` (in `.env`) can message the bot. IDs are injected into the config at
+startup by `sandbox-up.sh`.
 
-**State persistence:** Telegram pairing, sessions, and cron jobs are snapshotted to `state/`
+**Network policy:** Deny-by-default with an explicit allowlist: `openrouter.ai`,
+`api.anthropic.com`, `api.telegram.org`, `*.npmjs.org`, `github.com`.
+Configured via `scripts/network-policy.sh`.
+
+**State persistence:** Sessions and cron jobs are snapshotted to `state/`
 (gitignored) on `make down` and restored on `make up`. This means `make reset` preserves your
-pairing — no need to re-pair every time.
+state — no need to re-configure every time.
 
 ## Troubleshooting
 
@@ -139,13 +169,8 @@ make reset
 ```
 
 **Bot doesn't respond to DMs**
-Pairing is required on first contact. DM the bot — it will reply with a pairing code. Approve it:
-
-```bash
-make shell
-openclaw pairing approve telegram <CODE>
-exit
-```
+Check that your Telegram user ID is in `TELEGRAM_ALLOWED_IDS` in `.env`. Find your ID by messaging
+[@userinfobot](https://t.me/userinfobot) on Telegram. After updating `.env`, run `make reset`.
 
 **"Telegram configured, not enabled yet" during `make up`**
 This is normal. The `openclaw doctor --fix` step reports this before the gateway starts.
@@ -161,8 +186,8 @@ OPENCLAW_GATEWAY_TOKEN=<value from make up output>
 
 ## Roadmap
 
-- **Phase 1** (current): Local Docker AI Sandbox on macOS
-- **Phase 2**: Polish — persistent state snapshots, skills, security hardening, cron
+- **Phase 1** (done): Local Docker AI Sandbox on macOS
+- **Phase 2** (done): Security hardening (allowlist), skills plumbing, Chromium, OpenRouter support
 - **Phase 3**: Remote — Fly.io VM + Tailscale, borrowing patterns from [codebox](https://github.com)
 
 ## Links

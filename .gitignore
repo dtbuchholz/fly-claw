@@ -1,3 +1,4 @@
 .env
 *.local.json
+.config-tmp.json
 state/

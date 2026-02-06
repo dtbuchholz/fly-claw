@@ -49,6 +49,7 @@ reset: down
 onboard:
 	docker sandbox exec -it \
 		-e ANTHROPIC_API_KEY \
+		-e OPENROUTER_API_KEY \
 		-e TELEGRAM_BOT_TOKEN \
 		-e OPENCLAW_GATEWAY_TOKEN \
 		"$(SANDBOX_NAME)" openclaw onboard

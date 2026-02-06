@@ -15,9 +15,9 @@ if [ -f "$ROOT_DIR/.env" ]; then
     set +a
 fi
 
-# Require API key
-if [ -z "${ANTHROPIC_API_KEY:-}" ]; then
-    echo "Error: ANTHROPIC_API_KEY not set. Copy .env.example to .env and fill it in."
+# Require API credentials (direct Anthropic key or OpenRouter key)
+if [ -z "${ANTHROPIC_API_KEY:-}" ] && [ -z "${OPENROUTER_API_KEY:-}" ]; then
+    echo "Error: Set ANTHROPIC_API_KEY or OPENROUTER_API_KEY in .env"
     exit 1
 fi
 
@@ -27,6 +27,14 @@ if [ -z "${OPENCLAW_GATEWAY_TOKEN:-}" ]; then
     echo "Generated gateway token: $OPENCLAW_GATEWAY_TOKEN"
     echo "  (Add OPENCLAW_GATEWAY_TOKEN=$OPENCLAW_GATEWAY_TOKEN to .env to persist)"
 fi
+
+# Build env flags passed to every sandbox exec that runs OpenClaw
+OC_ENV=(
+    -e "TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN:-}"
+    -e "OPENCLAW_GATEWAY_TOKEN=${OPENCLAW_GATEWAY_TOKEN}"
+)
+[ -n "${ANTHROPIC_API_KEY:-}" ]   && OC_ENV+=(-e "ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}")
+[ -n "${OPENROUTER_API_KEY:-}" ]  && OC_ENV+=(-e "OPENROUTER_API_KEY=${OPENROUTER_API_KEY}")
 
 # Check if sandbox already exists
 if docker sandbox ls 2>/dev/null | grep -q "$SANDBOX_NAME"; then
@@ -45,10 +53,31 @@ fi
 # are available inside the sandbox. Copy from there to ~/.openclaw/.
 echo "Syncing config..."
 docker sandbox exec "$SANDBOX_NAME" mkdir -p /home/agent/.openclaw/workspace
-docker sandbox exec "$SANDBOX_NAME" \
-    cp "$ROOT_DIR/config/openclaw.json" /home/agent/.openclaw/openclaw.json
+
+# Copy config, injecting Telegram allowlist from env if set
+if [ -n "${TELEGRAM_ALLOWED_IDS:-}" ]; then
+    ALLOW_JSON=$(echo "$TELEGRAM_ALLOWED_IDS" | tr ',' '\n' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//' | jq -R 'tonumber' | jq -s '.')
+    jq --argjson ids "$ALLOW_JSON" '.channels.telegram.allowFrom = $ids' \
+        "$ROOT_DIR/config/openclaw.json" > "$ROOT_DIR/.config-tmp.json"
+    docker sandbox exec "$SANDBOX_NAME" \
+        cp "$ROOT_DIR/.config-tmp.json" /home/agent/.openclaw/openclaw.json
+    rm -f "$ROOT_DIR/.config-tmp.json"
+else
+    docker sandbox exec "$SANDBOX_NAME" \
+        cp "$ROOT_DIR/config/openclaw.json" /home/agent/.openclaw/openclaw.json
+fi
+
 docker sandbox exec "$SANDBOX_NAME" \
     bash -c "cp \"$ROOT_DIR/config/workspace/\"*.md /home/agent/.openclaw/workspace/ 2>/dev/null || true"
+
+# Copy skills into the sandbox
+docker sandbox exec "$SANDBOX_NAME" mkdir -p /home/agent/.openclaw/workspace/skills
+docker sandbox exec "$SANDBOX_NAME" \
+    bash -c "cp -r \"$ROOT_DIR/config/workspace/skills/\"* /home/agent/.openclaw/workspace/skills/ 2>/dev/null || true"
+
+# Lock down permissions (doctor warns if too open)
+docker sandbox exec "$SANDBOX_NAME" chmod 700 /home/agent/.openclaw
+docker sandbox exec "$SANDBOX_NAME" chmod 600 /home/agent/.openclaw/openclaw.json
 
 # Restore persisted state if available (survives make reset)
 STATE_DIR="$ROOT_DIR/state"
@@ -64,11 +93,26 @@ fi
 
 # Run doctor --fix on first setup to initialize state dirs and finalize config
 docker sandbox exec \
-    -e "ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}" \
-    -e "TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN:-}" \
-    -e "OPENCLAW_GATEWAY_TOKEN=${OPENCLAW_GATEWAY_TOKEN}" \
+    "${OC_ENV[@]}" \
     "$SANDBOX_NAME" \
-    openclaw doctor --fix 2>/dev/null || true
+    openclaw doctor --fix > /dev/null 2>&1 || true
+
+# Register API key in agent auth store
+if [ -n "${OPENROUTER_API_KEY:-}" ]; then
+    echo "Registering OpenRouter credentials..."
+    docker sandbox exec \
+        "${OC_ENV[@]}" \
+        "$SANDBOX_NAME" \
+        openclaw onboard --auth-choice apiKey --token-provider openrouter --token "$OPENROUTER_API_KEY" \
+        > /dev/null 2>&1 || true
+elif [ -n "${ANTHROPIC_API_KEY:-}" ]; then
+    echo "Registering Anthropic credentials..."
+    docker sandbox exec \
+        "${OC_ENV[@]}" \
+        "$SANDBOX_NAME" \
+        openclaw onboard --auth-choice apiKey --token-provider anthropic --token "$ANTHROPIC_API_KEY" \
+        > /dev/null 2>&1 || true
+fi
 
 # Apply network policy
 echo "Applying network policy..."
@@ -81,9 +125,7 @@ sleep 1
 # Start the OpenClaw gateway
 echo "Starting OpenClaw gateway..."
 docker sandbox exec -d \
-    -e "ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}" \
-    -e "TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN:-}" \
-    -e "OPENCLAW_GATEWAY_TOKEN=${OPENCLAW_GATEWAY_TOKEN}" \
+    "${OC_ENV[@]}" \
     "$SANDBOX_NAME" \
     bash -c 'openclaw gateway run --port 18789 > /tmp/openclaw-gateway.log 2>&1'
 
@@ -92,10 +134,9 @@ echo "Waiting for gateway to start..."
 for i in $(seq 1 10); do
     sleep 2
     if docker sandbox exec \
-        -e "ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}" \
-        -e "OPENCLAW_GATEWAY_TOKEN=${OPENCLAW_GATEWAY_TOKEN}" \
+        "${OC_ENV[@]}" \
         "$SANDBOX_NAME" \
-        openclaw health 2>/dev/null; then
+        openclaw health > /dev/null 2>&1; then
         echo ""
         echo "=== Clawd is running ==="
         break

@@ -1,3 +1,3 @@
 # Clawd
 
-You are Clawd, a personal AI assistant.
+You are Tars, a personal AI assistant.

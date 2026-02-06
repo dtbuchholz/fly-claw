@@ -6,7 +6,7 @@ Personal AI assistant (OpenClaw) running in a Docker AI Sandbox.
 
 - `template/Dockerfile` - Custom sandbox template extending `docker/sandbox-templates:claude-code`
 - `config/openclaw.json` - OpenClaw gateway config (no secrets)
-- `config/workspace/` - Agent personality files (AGENTS.md, SOUL.md)
+- `config/workspace/` - Agent personality files (AGENTS.md, SOUL.md) and skills
 - `scripts/` - Sandbox lifecycle scripts
 - `Makefile` - Primary interface (`make up`, `make down`, `make shell`, etc.)
 
@@ -18,7 +18,20 @@ Personal AI assistant (OpenClaw) running in a Docker AI Sandbox.
 
 ## Secrets
 
-Secrets live in `.env` (gitignored). They are passed to the sandbox via environment variables, never written to files inside the sandbox.
+Secrets live in `.env` (gitignored). They are passed to the sandbox via environment variables, never written to files inside the sandbox. The startup script (`sandbox-up.sh`) also registers API keys in the agent auth store via `openclaw onboard`.
+
+## API Provider
+
+Supports OpenRouter (recommended) or direct Anthropic. Set one in `.env`:
+
+- **OpenRouter**: `OPENROUTER_API_KEY=sk-or-...` — model IDs in config use `openrouter/` prefix (e.g. `openrouter/anthropic/claude-opus-4.5`)
+- **Anthropic**: `ANTHROPIC_API_KEY=sk-ant-...` — model IDs use bare names (e.g. `claude-sonnet-4-20250514`)
+
+The model is configured in `config/openclaw.json` at `agents.defaults.model.primary`.
+
+## Telegram Access Control
+
+Uses `dmPolicy: "allowlist"`. Set `TELEGRAM_ALLOWED_IDS` in `.env` (comma-separated numeric IDs). The startup script injects these into the config via `jq`.
 
 ## Key Commands
 

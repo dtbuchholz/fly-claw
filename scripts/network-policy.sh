@@ -9,6 +9,7 @@ echo "  Policy: deny-by-default with allowlist"
 docker sandbox network proxy "$SANDBOX_NAME" \
     --policy deny \
     --allow-host "api.anthropic.com" \
+    --allow-host "openrouter.ai" \
     --allow-host "api.telegram.org" \
     --allow-host "registry.npmjs.org" \
     --allow-host "*.npmjs.org" \
@@ -17,4 +18,4 @@ docker sandbox network proxy "$SANDBOX_NAME" \
     --allow-host "*.githubusercontent.com"
 
 echo "Network policy applied."
-echo "  Allowed: api.anthropic.com, api.telegram.org, *.npmjs.org, github.com"
+echo "  Allowed: api.anthropic.com, openrouter.ai, api.telegram.org, *.npmjs.org, github.com"

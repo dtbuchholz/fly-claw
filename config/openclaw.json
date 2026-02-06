@@ -10,11 +10,21 @@
   "channels": {
     "telegram": {
       "enabled": true,
-      "dmPolicy": "pairing"
+      "dmPolicy": "allowlist",
+      "allowFrom": []
     }
   },
   "agents": {
     "defaults": {
+      "model": {
+        "primary": "openrouter/anthropic/claude-opus-4.5"
+      },
+      "models": {
+        "openrouter/anthropic/claude-sonnet-4.5": { "alias": "Sonnet" },
+        "openrouter/anthropic/claude-opus-4.5": { "alias": "Opus" },
+        "openrouter/anthropic/claude-haiku-4.5": { "alias": "Haiku" },
+        "openrouter/openai/gpt-5.2-codex": { "alias": "Codex" }
+      },
       "sandbox": {
         "mode": "off"
       }
