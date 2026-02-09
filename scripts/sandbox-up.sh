@@ -35,6 +35,7 @@ OC_ENV=(
 )
 [ -n "${ANTHROPIC_API_KEY:-}" ]   && OC_ENV+=(-e "ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}")
 [ -n "${OPENROUTER_API_KEY:-}" ]  && OC_ENV+=(-e "OPENROUTER_API_KEY=${OPENROUTER_API_KEY}")
+[ -n "${OPENAI_API_KEY:-}" ]      && OC_ENV+=(-e "OPENAI_API_KEY=${OPENAI_API_KEY}")
 
 # Check if sandbox already exists
 if docker sandbox ls 2>/dev/null | grep -q "$SANDBOX_NAME"; then

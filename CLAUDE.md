@@ -1,14 +1,24 @@
 # Clawd
 
-Personal AI assistant (OpenClaw) running in a Docker AI Sandbox.
+Personal AI assistant (OpenClaw) running in a Docker AI Sandbox (local) or Fly.io VM (remote).
 
 ## Architecture
+
+### Local (Docker Sandbox)
 
 - `template/Dockerfile` - Custom sandbox template extending `docker/sandbox-templates:claude-code`
 - `config/openclaw.json` - OpenClaw gateway config (no secrets)
 - `config/workspace/` - Agent personality files (AGENTS.md, SOUL.md) and skills
 - `scripts/` - Sandbox lifecycle scripts
 - `Makefile` - Primary interface (`make up`, `make down`, `make shell`, etc.)
+
+### Remote (Fly.io)
+
+- `remote/Dockerfile` - Standalone image (debian:bookworm-slim + Node 22 + Chromium + Tailscale + OpenClaw)
+- `remote/entrypoint.sh` - VM init: secrets, config injection, optional Tailscale, gateway startup
+- `remote/fly.toml.example` - Fly.io config template with `{{APP_NAME}}`/`{{REGION}}` placeholders
+- `remote/fly-init.sh` - Generates `fly.toml` from template
+- `remote/deploy.sh` - Validates secrets, creates app/volume if needed, runs `fly deploy`
 
 ## Workflow Guidelines
 
@@ -36,11 +46,19 @@ Uses `dmPolicy: "allowlist"`. Set `TELEGRAM_ALLOWED_IDS` in `.env` (comma-separa
 ## Key Commands
 
 ```bash
+# Local (Docker Sandbox)
 make up       # Build template + create sandbox + start gateway
 make shell    # Interactive shell in sandbox
 make logs     # Tail gateway logs
 make down     # Stop sandbox
 make reset    # Destroy and recreate
+
+# Remote (Fly.io)
+make fly-init APP=<name>  # Generate fly.toml from template
+make deploy               # Deploy to Fly.io
+make fly-logs             # Tail remote logs
+make fly-status           # Check remote VM status
+make fly-console          # SSH into remote VM
 ```
 
 ## OpenClaw Docs

@@ -1,0 +1,8 @@
+.git
+.env
+state/
+template/
+node_modules/
+.claude/
+*.local.json
+.config-tmp.json

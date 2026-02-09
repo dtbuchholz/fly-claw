@@ -1,4 +1,5 @@
-.PHONY: build up down status logs shell reset restart onboard network-setup help
+.PHONY: build up down status logs shell reset restart onboard network-setup help \
+       fly-init deploy fly-logs fly-status fly-console
 
 SANDBOX_NAME ?= clawd
 WORKSPACE_DIR ?= $(shell pwd)
@@ -22,6 +23,13 @@ help:
 	@echo ""
 	@echo "Config:"
 	@echo "  make network-setup  Apply network proxy rules"
+	@echo ""
+	@echo "Remote (Fly.io):"
+	@echo "  make fly-init APP=<name>  Generate fly.toml from template"
+	@echo "  make deploy               Deploy to Fly.io"
+	@echo "  make fly-logs             Tail remote logs"
+	@echo "  make fly-status           Check remote VM status"
+	@echo "  make fly-console          SSH into remote VM"
 
 build:
 	@echo "Building sandbox template..."
@@ -59,3 +67,29 @@ restart:
 
 network-setup:
 	@./scripts/network-policy.sh $(SANDBOX_NAME)
+
+# =============================================================================
+# Remote (Fly.io)
+# =============================================================================
+
+FLY_REGION ?= iad
+
+fly-init:
+	@./remote/fly-init.sh $(APP) $(FLY_REGION)
+
+deploy:
+	@./remote/deploy.sh
+
+FLY_APP = $(shell test -f fly.toml && grep '^app' fly.toml | head -1 | sed 's/app *= *"\(.*\)"/\1/')
+
+fly-logs:
+	@test -n "$(FLY_APP)" || (echo "Error: fly.toml not found. Run: make fly-init APP=<name>" && false)
+	fly logs -a $(FLY_APP)
+
+fly-status:
+	@test -n "$(FLY_APP)" || (echo "Error: fly.toml not found. Run: make fly-init APP=<name>" && false)
+	fly status -a $(FLY_APP)
+
+fly-console:
+	@test -n "$(FLY_APP)" || (echo "Error: fly.toml not found. Run: make fly-init APP=<name>" && false)
+	fly ssh console -a $(FLY_APP)

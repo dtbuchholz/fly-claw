@@ -2,3 +2,4 @@
 *.local.json
 .config-tmp.json
 state/
+fly.toml
