@@ -47,13 +47,17 @@ fi
 # --- 7. Fix permissions ---
 chmod 700 /data/.openclaw
 chmod 600 /data/.openclaw/openclaw.json
-chown -R agent:agent /data/.openclaw /data/logs /home/agent/.bashrc
+chown -R agent:agent /data/.openclaw /data/logs /data/.env.secrets /home/agent/.bashrc
 
 # --- 8. Tailscale (optional) ---
 if [ -n "${TAILSCALE_AUTHKEY:-}" ]; then
     echo "Starting Tailscale..."
-    mkdir -p /var/run/tailscale
-    tailscaled --state=/data/tailscaled.state --socket=/var/run/tailscale/tailscaled.sock &
+    mkdir -p /var/run/tailscale /data/tailscale
+    # Migrate old state file into statedir (one-time, from pre-statedir deploys)
+    if [ -f /data/tailscaled.state ] && [ ! -f /data/tailscale/tailscaled.state ]; then
+        mv /data/tailscaled.state /data/tailscale/tailscaled.state
+    fi
+    tailscaled --statedir=/data/tailscale --socket=/var/run/tailscale/tailscaled.sock &
     for i in $(seq 1 10); do
         tailscale status &>/dev/null && break
         sleep 1

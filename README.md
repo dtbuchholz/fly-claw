@@ -90,16 +90,24 @@ After editing `config/openclaw.json`, `config/workspace/*.md`, or `remote/*`:
 make deploy
 ```
 
-### Tailscale (Optional)
+### Tailscale SSH (Optional)
 
-For private SSH access without `fly ssh console`, set a Tailscale auth key:
+For private SSH access without `fly ssh console`:
 
 ```bash
-fly secrets set TAILSCALE_AUTHKEY='tskey-auth-...' -a clawd
+# 1. Set your Tailscale auth key (https://login.tailscale.com/admin/settings/keys)
+fly secrets set TAILSCALE_AUTHKEY='tskey-auth-...' -a my-clawd
 make deploy
+
+# 2. Confirm the VM appears on your tailnet
+tailscale status | grep my-clawd
+
+# 3. SSH in (no keys needed — Tailscale handles auth)
+ssh agent@my-clawd
 ```
 
-The VM will appear on your tailnet as `clawd` with Tailscale SSH enabled.
+The VM advertises itself with `--ssh` using the Fly app name as its hostname. State is
+persisted to `/data/tailscale`, so the node identity survives redeploys.
 
 ## Changing the Model
 
