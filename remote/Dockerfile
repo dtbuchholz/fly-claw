@@ -56,6 +56,6 @@ COPY remote/entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN chmod +x /usr/local/bin/entrypoint.sh
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
-    CMD su -m agent -c 'source /data/.env.secrets 2>/dev/null && openclaw health' || exit 1
+    CMD su - agent -c 'source /data/.env.secrets 2>/dev/null && openclaw health' || exit 1
 
 ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]

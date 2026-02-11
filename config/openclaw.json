@@ -14,6 +14,13 @@
       "allowFrom": []
     }
   },
+  "plugins": {
+    "entries": {
+      "telegram": {
+        "enabled": true
+      }
+    }
+  },
   "agents": {
     "defaults": {
       "model": {

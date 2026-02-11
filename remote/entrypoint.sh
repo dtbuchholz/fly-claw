@@ -69,18 +69,23 @@ fi
 
 # --- 9. Doctor ---
 echo "Running openclaw doctor..."
-su -m agent -c 'source /data/.env.secrets && openclaw doctor --fix' 2>&1 || true
+su - agent -c 'source /data/.env.secrets && openclaw doctor --fix' 2>&1 || true
+# Doctor may disable the telegram plugin; force it back on
+jq '.plugins.entries.telegram.enabled = true' /data/.openclaw/openclaw.json > /data/.openclaw/openclaw.json.tmp \
+    && mv /data/.openclaw/openclaw.json.tmp /data/.openclaw/openclaw.json
+chown agent:agent /data/.openclaw/openclaw.json
+chmod 600 /data/.openclaw/openclaw.json
 
 # --- 10. Onboard API credentials ---
 echo "Registering API credentials..."
 if [ -n "${OPENROUTER_API_KEY:-}" ]; then
-    su -m agent -c 'source /data/.env.secrets && openclaw onboard --auth-choice apiKey --token-provider openrouter --token "$OPENROUTER_API_KEY"' \
+    su - agent -c 'source /data/.env.secrets && openclaw onboard --auth-choice apiKey --token-provider openrouter --token "$OPENROUTER_API_KEY"' \
         2>&1 || true
 elif [ -n "${ANTHROPIC_API_KEY:-}" ]; then
-    su -m agent -c 'source /data/.env.secrets && openclaw onboard --auth-choice apiKey --token-provider anthropic --token "$ANTHROPIC_API_KEY"' \
+    su - agent -c 'source /data/.env.secrets && openclaw onboard --auth-choice apiKey --token-provider anthropic --token "$ANTHROPIC_API_KEY"' \
         2>&1 || true
 fi
 
 # --- 11. Start gateway (foreground, PID 1) ---
 echo "=== Clawd Ready ==="
-exec su -m agent -c 'source /data/.env.secrets && openclaw gateway run --port 18789 2>&1 | tee /data/logs/gateway.log'
+exec su - agent -c 'source /data/.env.secrets && openclaw gateway run --port 18789 2>&1 | tee /data/logs/gateway.log'
