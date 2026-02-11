@@ -34,6 +34,15 @@
       },
       "sandbox": {
         "mode": "off"
+      },
+      "compaction": {
+        "memoryFlush": {
+          "enabled": true,
+          "softThresholdTokens": 4000
+        }
+      },
+      "memorySearch": {
+        "provider": "local"
       }
     }
   }
