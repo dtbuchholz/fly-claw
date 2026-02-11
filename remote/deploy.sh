@@ -44,31 +44,39 @@ if ! fly volumes list -a "$APP_NAME" --json 2>/dev/null | jq -e '.[0]' &>/dev/nu
 fi
 
 # --- Validate secrets ---
-SECRETS_JSON=$(fly secrets list -a "$APP_NAME" --json 2>/dev/null || echo "[]")
-has_secret() { echo "$SECRETS_JSON" | jq -e ".[] | select(.Name == \"$1\")" &>/dev/null; }
+# fly secrets list may fail for apps with no machines (pre-first-deploy);
+# in that case skip validation — staged secrets exist but aren't queryable
+SECRETS_JSON=$(fly secrets list -a "$APP_NAME" --json 2>/dev/null) || {
+    echo "Note: cannot query secrets (first deploy?). Skipping validation."
+    SECRETS_JSON=""
+}
 
-MISSING=()
-has_secret "OPENCLAW_GATEWAY_TOKEN" || MISSING+=("OPENCLAW_GATEWAY_TOKEN")
-has_secret "TELEGRAM_BOT_TOKEN"     || MISSING+=("TELEGRAM_BOT_TOKEN")
+if [ -n "$SECRETS_JSON" ]; then
+    has_secret() { echo "$SECRETS_JSON" | jq -e ".[] | select(.name == \"$1\")" &>/dev/null; }
 
-if ! has_secret "OPENROUTER_API_KEY" && ! has_secret "ANTHROPIC_API_KEY"; then
-    MISSING+=("OPENROUTER_API_KEY or ANTHROPIC_API_KEY")
+    MISSING=()
+    has_secret "OPENCLAW_GATEWAY_TOKEN" || MISSING+=("OPENCLAW_GATEWAY_TOKEN")
+    has_secret "TELEGRAM_BOT_TOKEN"     || MISSING+=("TELEGRAM_BOT_TOKEN")
+
+    if ! has_secret "OPENROUTER_API_KEY" && ! has_secret "ANTHROPIC_API_KEY"; then
+        MISSING+=("OPENROUTER_API_KEY or ANTHROPIC_API_KEY")
+    fi
+
+    if [ ${#MISSING[@]} -gt 0 ]; then
+        echo ""
+        echo "Error: missing required secrets:"
+        for s in "${MISSING[@]}"; do
+            echo "  - $s"
+        done
+        echo ""
+        echo "Set them with: fly secrets set KEY=value -a $APP_NAME"
+        exit 1
+    fi
+
+    # Warn about optional
+    has_secret "TAILSCALE_AUTHKEY"    || echo "Note: TAILSCALE_AUTHKEY not set (Tailscale SSH disabled)"
+    has_secret "TELEGRAM_ALLOWED_IDS" || echo "Warning: TELEGRAM_ALLOWED_IDS not set (bot accepts DMs from anyone)"
 fi
-
-if [ ${#MISSING[@]} -gt 0 ]; then
-    echo ""
-    echo "Error: missing required secrets:"
-    for s in "${MISSING[@]}"; do
-        echo "  - $s"
-    done
-    echo ""
-    echo "Set them with: fly secrets set KEY=value -a $APP_NAME"
-    exit 1
-fi
-
-# Warn about optional
-has_secret "TAILSCALE_AUTHKEY"    || echo "Note: TAILSCALE_AUTHKEY not set (Tailscale SSH disabled)"
-has_secret "TELEGRAM_ALLOWED_IDS" || echo "Warning: TELEGRAM_ALLOWED_IDS not set (bot accepts DMs from anyone)"
 
 # --- Deploy ---
 echo ""

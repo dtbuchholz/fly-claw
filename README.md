@@ -66,16 +66,17 @@ Run the bot on a Fly.io VM with a persistent volume. Optional Tailscale for priv
 ### First-Time Setup
 
 ```bash
-# 1. Generate fly.toml
-make fly-init APP=clawd
+# 1. Generate fly.toml (pick a unique app name — names are global on Fly.io)
+make fly-init APP=my-clawd
 
-# 2. Set secrets
+# 2. Create the app + set secrets
+fly apps create my-clawd
 fly secrets set \
     OPENROUTER_API_KEY='sk-or-...' \
     TELEGRAM_BOT_TOKEN='123456:ABC-DEF...' \
     OPENCLAW_GATEWAY_TOKEN="$(openssl rand -hex 16)" \
     TELEGRAM_ALLOWED_IDS='12345678' \
-    -a clawd
+    -a my-clawd
 
 # 3. Deploy
 make deploy
