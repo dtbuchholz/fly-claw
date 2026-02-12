@@ -74,6 +74,17 @@ it completes, add the printed public key to
 [github.com/settings/keys](https://github.com/settings/keys) as both an **Authentication** and
 **Signing** key.
 
+**GitHub CLI (`gh`):** To enable `gh pr create`, `gh issue list`, etc. on the VM, set a
+[personal access token](https://github.com/settings/tokens) (classic, `repo` scope) as a Fly
+secret:
+
+```bash
+fly secrets set GH_TOKEN='ghp_...' -a my-clawd
+make deploy
+```
+
+The token is picked up automatically — no interactive `gh auth login` needed.
+
 ## Configuration
 
 ### Model

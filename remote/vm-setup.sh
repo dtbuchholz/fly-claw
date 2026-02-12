@@ -115,17 +115,27 @@ header "GitHub CLI"
 if gh auth status &>/dev/null; then
     ok "Already authenticated"
     gh auth status 2>&1 | head -5
+elif [ -n "${GH_TOKEN:-}" ]; then
+    ok "GH_TOKEN detected in environment — gh CLI is authenticated"
+    gh auth status 2>&1 | head -5 || true
 else
-    if ask_yn "Authenticate with GitHub?"; then
+    echo "To enable gh CLI, set GH_TOKEN as a Fly secret:"
+    echo ""
+    echo "  fly secrets set GH_TOKEN='ghp_...' -a <app-name>"
+    echo "  make deploy"
+    echo ""
+    echo "Create a token at https://github.com/settings/tokens (classic, repo scope)"
+    echo "The token is picked up automatically on next deploy — no interactive auth needed."
+    echo ""
+    if ask_yn "Or authenticate interactively now?"; then
         echo ""
         echo "Choose: GitHub.com → SSH (or HTTPS) → Paste an authentication token"
-        echo "(Create a token at https://github.com/settings/tokens with repo scope)"
         echo ""
         gh auth login
         gh auth setup-git
         ok "Authenticated + git credential helper configured"
     else
-        warn "Skipped — gh commands and HTTPS cloning won't work without auth"
+        warn "Skipped — gh commands won't work without GH_TOKEN or gh auth login"
     fi
 fi
 
