@@ -25,7 +25,9 @@ Personal AI assistant (OpenClaw) running in a Docker AI Sandbox (local) or Fly.i
 
 1. **Read AGENTS.md** for code style and project structure
 2. Run `make build` to verify the template builds after changes
-3. Never put secrets in committed files — use `.env`
+3. Run `make lint` to check formatting + shell scripts + Dockerfiles
+4. Never put secrets in committed files — use `.env`
+5. Run `make setup` once after cloning to install pre-commit hooks
 
 ## Secrets
 

@@ -66,7 +66,7 @@ if [ -n "${TAILSCALE_AUTHKEY:-}" ]; then
         mv /data/tailscaled.state /data/tailscale/tailscaled.state
     fi
     tailscaled --statedir=/data/tailscale --socket=/var/run/tailscale/tailscaled.sock &
-    for i in $(seq 1 10); do
+    for _retry in $(seq 1 10); do
         tailscale status &>/dev/null && break
         sleep 1
     done
@@ -87,9 +87,11 @@ chmod 600 /data/.openclaw/openclaw.json
 # --- 11. Onboard API credentials ---
 echo "Registering API credentials..."
 if [ -n "${OPENROUTER_API_KEY:-}" ]; then
+    # shellcheck disable=SC2016 # $OPENROUTER_API_KEY expands inside su subshell via sourced .env.secrets
     su - agent -c 'source /data/.env.secrets && openclaw onboard --auth-choice apiKey --token-provider openrouter --token "$OPENROUTER_API_KEY"' \
         2>&1 || true
 elif [ -n "${ANTHROPIC_API_KEY:-}" ]; then
+    # shellcheck disable=SC2016 # $ANTHROPIC_API_KEY expands inside su subshell via sourced .env.secrets
     su - agent -c 'source /data/.env.secrets && openclaw onboard --auth-choice apiKey --token-provider anthropic --token "$ANTHROPIC_API_KEY"' \
         2>&1 || true
 fi

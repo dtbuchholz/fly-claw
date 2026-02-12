@@ -1,6 +1,6 @@
 .PHONY: build up down status logs shell reset restart onboard network-setup help \
        fly-init deploy fly-logs fly-status fly-console \
-       format format-check
+       format format-check lint lint-shell lint-docker setup
 
 SANDBOX_NAME ?= clawd
 WORKSPACE_DIR ?= $(shell pwd)
@@ -26,8 +26,12 @@ help:
 	@echo "  make network-setup  Apply network proxy rules"
 	@echo ""
 	@echo "Code Quality:"
+	@echo "  make setup          Install pre-commit hooks"
 	@echo "  make format         Auto-format (Prettier)"
 	@echo "  make format-check   Check formatting (CI)"
+	@echo "  make lint           Run all linters"
+	@echo "  make lint-shell     Lint shell scripts (shellcheck)"
+	@echo "  make lint-docker    Lint Dockerfiles (hadolint)"
 	@echo ""
 	@echo "Remote (Fly.io):"
 	@echo "  make fly-init APP=<name>  Generate fly.toml from template"
@@ -94,6 +98,25 @@ format-check:
 	else \
 		echo "Error: pnpm or npx required. Install with: npm install -g pnpm"; false; \
 	fi
+
+SHELL_SCRIPTS = $(wildcard scripts/*.sh remote/*.sh)
+DOCKERFILES = template/Dockerfile remote/Dockerfile
+
+lint: format-check lint-shell lint-docker
+
+lint-shell:
+	@command -v shellcheck >/dev/null 2>&1 || (echo "Error: shellcheck not found. Install: brew install shellcheck"; false)
+	shellcheck -e SC1091 $(SHELL_SCRIPTS)
+
+lint-docker:
+	@command -v hadolint >/dev/null 2>&1 || (echo "Error: hadolint not found. Install: brew install hadolint"; false)
+	hadolint --ignore DL3008 --ignore DL3013 $(DOCKERFILES)
+
+setup:
+	@command -v pre-commit >/dev/null 2>&1 || (echo "Error: pre-commit not found. Install: brew install pre-commit"; false)
+	pre-commit install
+	pre-commit install --hook-type pre-push
+	@echo "Pre-commit hooks installed."
 
 # =============================================================================
 # Remote (Fly.io)

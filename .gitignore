@@ -4,3 +4,4 @@
 state/
 fly.toml
 node_modules/
+.pre-commit-cache/

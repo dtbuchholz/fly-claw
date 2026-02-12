@@ -2,9 +2,11 @@ FROM docker/sandbox-templates:claude-code
 
 USER root
 
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+
 # Upgrade Node.js to 22.x (base image ships 20.x, OpenClaw requires >=22.12)
 RUN curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
-    && apt-get install -y nodejs \
+    && apt-get install -y --no-install-recommends nodejs \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Chromium for browser automation
