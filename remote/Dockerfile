@@ -10,6 +10,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     git \
     jq \
     sudo \
+    openssh-client \
     chromium \
     fonts-liberation \
     libnss3 \
@@ -22,6 +23,15 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libasound2 \
     libpangocairo-1.0-0 \
     libgtk-3-0 \
+    && rm -rf /var/lib/apt/lists/*
+
+# GitHub CLI
+RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg \
+        > /usr/share/keyrings/githubcli-archive-keyring.gpg \
+    && chmod go+r /usr/share/keyrings/githubcli-archive-keyring.gpg \
+    && echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" \
+        > /etc/apt/sources.list.d/github-cli.list \
+    && apt-get update && apt-get install -y gh \
     && rm -rf /var/lib/apt/lists/*
 
 # Node.js 22.x
@@ -51,9 +61,10 @@ RUN groupadd -r agent && useradd -r -g agent -m -s /bin/bash agent \
 COPY config/openclaw.json /opt/openclaw/openclaw.json
 COPY config/workspace/ /opt/openclaw/workspace/
 
-# Entrypoint
+# Scripts
 COPY remote/entrypoint.sh /usr/local/bin/entrypoint.sh
-RUN chmod +x /usr/local/bin/entrypoint.sh
+COPY remote/vm-setup.sh /usr/local/bin/vm-setup.sh
+RUN chmod +x /usr/local/bin/entrypoint.sh /usr/local/bin/vm-setup.sh
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
     CMD su - agent -c 'source /data/.env.secrets 2>/dev/null && openclaw health' || exit 1

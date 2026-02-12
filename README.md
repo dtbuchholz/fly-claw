@@ -109,6 +109,32 @@ ssh agent@my-clawd
 The VM advertises itself with `--ssh` using the Fly app name as its hostname. State is
 persisted to `/data/tailscale`, so the node identity survives redeploys.
 
+### Git, SSH & GitHub Setup
+
+Set up git identity, SSH commit signing, and GitHub CLI on the VM. Requires Tailscale SSH
+(see above). Run once after first deploy — state persists on the `/data` volume across
+redeploys.
+
+```bash
+# SSH in and run the interactive setup wizard
+ssh -t agent@my-clawd vm-setup.sh
+
+# The wizard will:
+# 1. Set git user.name and user.email
+# 2. Generate an ed25519 SSH key
+# 3. Enable SSH commit signing (gpg.format=ssh)
+# 4. Authenticate the GitHub CLI (gh auth login)
+# 5. Configure ~/.ssh/config for github.com
+```
+
+After the wizard completes, add the public key to GitHub **twice**
+([github.com/settings/keys](https://github.com/settings/keys)):
+
+1. **Authentication key** — for cloning private repos via SSH
+2. **Signing key** — for verified (signed) commits
+
+Both use the same public key printed by the wizard.
+
 ## Changing the Model
 
 The model is set in `config/openclaw.json` under `agents.defaults.model.primary`.
@@ -196,6 +222,7 @@ clawd/
 └── remote/
     ├── Dockerfile                # Standalone image for Fly.io
     ├── entrypoint.sh             # VM init + gateway startup
+    ├── vm-setup.sh               # Interactive git/SSH/GitHub wizard
     ├── fly.toml.example          # Fly.io config template
     ├── fly-init.sh               # Generate fly.toml from template
     └── deploy.sh                 # Validate secrets + fly deploy

@@ -19,6 +19,7 @@ Personal AI assistant (OpenClaw) running in a Docker AI Sandbox (local) or Fly.i
 - `remote/fly.toml.example` - Fly.io config template with `{{APP_NAME}}`/`{{REGION}}` placeholders
 - `remote/fly-init.sh` - Generates `fly.toml` from template
 - `remote/deploy.sh` - Validates secrets, creates app/volume if needed, runs `fly deploy`
+- `remote/vm-setup.sh` - Interactive wizard for git identity, SSH keys, commit signing, GitHub CLI
 
 ## Workflow Guidelines
 

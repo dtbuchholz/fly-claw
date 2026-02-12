@@ -44,12 +44,20 @@ if [ -d /opt/openclaw/workspace/skills ]; then
     cp -r /opt/openclaw/workspace/skills/* /data/.openclaw/workspace/skills/ 2>/dev/null || true
 fi
 
-# --- 7. Fix permissions ---
-chmod 700 /data/.openclaw
-chmod 600 /data/.openclaw/openclaw.json
-chown -R agent:agent /data/.openclaw /data/logs /data/.env.secrets /home/agent/.bashrc
+# --- 7. Persist git + SSH config ---
+mkdir -p /data/.ssh /data/.gnupg /data/git
+[ -f /data/git/config ] || touch /data/git/config
+ln -sfn /data/.ssh /home/agent/.ssh
+ln -sfn /data/git/config /home/agent/.gitconfig
+ln -sfn /data/.gnupg /home/agent/.gnupg
 
-# --- 8. Tailscale (optional) ---
+# --- 8. Fix permissions ---
+chmod 700 /data/.openclaw /data/.ssh /data/.gnupg /data/git
+chmod 600 /data/.openclaw/openclaw.json
+[ -s /data/.ssh/id_ed25519 ] && chmod 600 /data/.ssh/id_ed25519
+chown -R agent:agent /data/.openclaw /data/.ssh /data/git /data/.gnupg /data/logs /data/.env.secrets /home/agent/.bashrc
+
+# --- 9. Tailscale (optional) ---
 if [ -n "${TAILSCALE_AUTHKEY:-}" ]; then
     echo "Starting Tailscale..."
     mkdir -p /var/run/tailscale /data/tailscale
@@ -67,7 +75,7 @@ if [ -n "${TAILSCALE_AUTHKEY:-}" ]; then
     echo "Tailscale up: $(tailscale ip -4)"
 fi
 
-# --- 9. Doctor ---
+# --- 10. Doctor ---
 echo "Running openclaw doctor..."
 su - agent -c 'source /data/.env.secrets && openclaw doctor --fix' 2>&1 || true
 # Doctor may disable the telegram plugin; force it back on
@@ -76,7 +84,7 @@ jq '.plugins.entries.telegram.enabled = true' /data/.openclaw/openclaw.json > /d
 chown agent:agent /data/.openclaw/openclaw.json
 chmod 600 /data/.openclaw/openclaw.json
 
-# --- 10. Onboard API credentials ---
+# --- 11. Onboard API credentials ---
 echo "Registering API credentials..."
 if [ -n "${OPENROUTER_API_KEY:-}" ]; then
     su - agent -c 'source /data/.env.secrets && openclaw onboard --auth-choice apiKey --token-provider openrouter --token "$OPENROUTER_API_KEY"' \
@@ -86,6 +94,6 @@ elif [ -n "${ANTHROPIC_API_KEY:-}" ]; then
         2>&1 || true
 fi
 
-# --- 11. Start gateway (foreground, PID 1) ---
+# --- 12. Start gateway (foreground, PID 1) ---
 echo "=== Clawd Ready ==="
 exec su - agent -c 'source /data/.env.secrets && openclaw gateway run --port 18789 2>&1 | tee /data/logs/gateway.log'
