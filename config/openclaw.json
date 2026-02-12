@@ -21,6 +21,12 @@
       }
     }
   },
+  "messages": {
+    "tts": {
+      "auto": "off",
+      "provider": "openai"
+    }
+  },
   "agents": {
     "defaults": {
       "model": {

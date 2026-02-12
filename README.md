@@ -135,6 +135,36 @@ After the wizard completes, add the public key to GitHub **twice**
 
 Both use the same public key printed by the wizard.
 
+## Text-to-Speech (TTS)
+
+The bot can convert responses to voice messages. TTS is configured in `config/openclaw.json`
+under `messages.tts` and uses OpenAI's TTS API.
+
+```json
+"messages": {
+  "tts": {
+    "auto": "off",
+    "provider": "openai"
+  }
+}
+```
+
+**`auto` modes:**
+
+| Value      | Behavior                                              |
+| ---------- | ----------------------------------------------------- |
+| `off`      | Disabled — no voice messages (default)                |
+| `always`   | Convert all responses to speech                       |
+| `inbound`  | Only when the inbound message is audio                |
+| `tagged`   | Only for explicitly tagged content                    |
+
+The mode can also be changed per-session in Telegram with `/tts off`, `/tts always`, etc.
+
+**Requirements:** Set `OPENAI_API_KEY` in `.env` (local) or via `fly secrets set` (remote).
+The key is already passed through to the sandbox and Fly.io VM by the startup scripts.
+
+After changing the TTS config, run `make reset` (local) or `make deploy` (remote) to apply.
+
 ## Changing the Model
 
 The model is set in `config/openclaw.json` under `agents.defaults.model.primary`.
