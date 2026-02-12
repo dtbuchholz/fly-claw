@@ -151,12 +151,12 @@ under `messages.tts` and uses OpenAI's TTS API.
 
 **`auto` modes:**
 
-| Value      | Behavior                                              |
-| ---------- | ----------------------------------------------------- |
-| `off`      | Disabled — no voice messages (default)                |
-| `always`   | Convert all responses to speech                       |
-| `inbound`  | Only when the inbound message is audio                |
-| `tagged`   | Only for explicitly tagged content                    |
+| Value     | Behavior                               |
+| --------- | -------------------------------------- |
+| `off`     | Disabled — no voice messages (default) |
+| `always`  | Convert all responses to speech        |
+| `inbound` | Only when the inbound message is audio |
+| `tagged`  | Only for explicitly tagged content     |
 
 The mode can also be changed per-session in Telegram with `/tts off`, `/tts always`, etc.
 
@@ -215,6 +215,9 @@ After changing the model, run `make reset` to apply.
 | `make reset`               | Destroy and recreate sandbox           |
 | `make onboard`             | Run OpenClaw onboarding wizard         |
 | `make network-setup`       | Apply network proxy rules              |
+| **Code Quality**           |                                        |
+| `make format`              | Auto-format with Prettier              |
+| `make format-check`        | Check formatting (CI)                  |
 | **Remote (Fly.io)**        |                                        |
 | `make fly-init APP=<name>` | Generate `fly.toml` from template      |
 | `make deploy`              | Deploy to Fly.io                       |

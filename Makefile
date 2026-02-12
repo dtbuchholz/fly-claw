@@ -1,5 +1,6 @@
 .PHONY: build up down status logs shell reset restart onboard network-setup help \
-       fly-init deploy fly-logs fly-status fly-console
+       fly-init deploy fly-logs fly-status fly-console \
+       format format-check
 
 SANDBOX_NAME ?= clawd
 WORKSPACE_DIR ?= $(shell pwd)
@@ -23,6 +24,10 @@ help:
 	@echo ""
 	@echo "Config:"
 	@echo "  make network-setup  Apply network proxy rules"
+	@echo ""
+	@echo "Code Quality:"
+	@echo "  make format         Auto-format (Prettier)"
+	@echo "  make format-check   Check formatting (CI)"
 	@echo ""
 	@echo "Remote (Fly.io):"
 	@echo "  make fly-init APP=<name>  Generate fly.toml from template"
@@ -67,6 +72,28 @@ restart:
 
 network-setup:
 	@./scripts/network-policy.sh $(SANDBOX_NAME)
+
+# =============================================================================
+# Code Quality
+# =============================================================================
+
+format:
+	@if command -v pnpm >/dev/null 2>&1; then \
+		pnpm format; \
+	elif command -v npx >/dev/null 2>&1; then \
+		npx prettier --write .; \
+	else \
+		echo "Error: pnpm or npx required. Install with: npm install -g pnpm"; false; \
+	fi
+
+format-check:
+	@if command -v pnpm >/dev/null 2>&1; then \
+		pnpm format:check; \
+	elif command -v npx >/dev/null 2>&1; then \
+		npx prettier --check .; \
+	else \
+		echo "Error: pnpm or npx required. Install with: npm install -g pnpm"; false; \
+	fi
 
 # =============================================================================
 # Remote (Fly.io)

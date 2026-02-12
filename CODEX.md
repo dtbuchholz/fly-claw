@@ -19,14 +19,14 @@ make status   # Health check
 
 ## Key Files
 
-| File                        | Purpose                                            |
-| --------------------------- | -------------------------------------------------- |
-| `template/Dockerfile`       | Custom sandbox template (Node 22 + OpenClaw)       |
-| `config/openclaw.json`      | OpenClaw gateway config (no secrets)               |
-| `config/workspace/AGENTS.md`| Bot personality (injected into OpenClaw, not this!) |
-| `scripts/sandbox-up.sh`     | Main orchestration: create sandbox + start gateway  |
-| `scripts/network-policy.sh` | Deny-by-default network rules                      |
-| `Makefile`                  | Primary interface for all operations               |
+| File                         | Purpose                                             |
+| ---------------------------- | --------------------------------------------------- |
+| `template/Dockerfile`        | Custom sandbox template (Node 22 + OpenClaw)        |
+| `config/openclaw.json`       | OpenClaw gateway config (no secrets)                |
+| `config/workspace/AGENTS.md` | Bot personality (injected into OpenClaw, not this!) |
+| `scripts/sandbox-up.sh`      | Main orchestration: create sandbox + start gateway  |
+| `scripts/network-policy.sh`  | Deny-by-default network rules                       |
+| `Makefile`                   | Primary interface for all operations                |
 
 ## Workflow
 

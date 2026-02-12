@@ -1,0 +1,24 @@
+# Shell scripts (no prettier support)
+scripts/
+remote/*.sh
+template/
+
+# Lock files
+pnpm-lock.yaml
+
+# IDE
+.vscode/
+.idea/
+.zed/
+
+# OS
+.DS_Store
+
+# Env files
+.env*
+!.env.example
+
+# State / generated
+state/
+.fly/
+fly.toml

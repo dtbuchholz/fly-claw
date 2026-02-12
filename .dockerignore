@@ -3,6 +3,7 @@
 state/
 template/
 node_modules/
+pnpm-lock.yaml
 .claude/
 *.local.json
 .config-tmp.json

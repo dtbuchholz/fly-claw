@@ -1,0 +1,14 @@
+{
+  "name": "clawd",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Personal AI assistant (OpenClaw) in Docker Sandbox / Fly.io",
+  "scripts": {
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
+  },
+  "devDependencies": {
+    "prettier": "^3.5.0"
+  },
+  "packageManager": "pnpm@9.15.0"
+}

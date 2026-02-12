@@ -3,3 +3,4 @@
 .config-tmp.json
 state/
 fly.toml
+node_modules/
