@@ -55,11 +55,13 @@ if [ -n "${TELEGRAM_ALLOWED_IDS:-}" ]; then
 fi
 
 # --- 6. Seed workspace files (first boot only — never overwrite agent changes) ---
-for f in /opt/openclaw/workspace/*.md; do
-    dest="/data/.openclaw/workspace/$(basename "$f")"
-    [ -f "$dest" ] || cp "$f" "$dest"
-done
-if [ -d /opt/openclaw/workspace/skills ]; then
+if compgen -G '/opt/openclaw/workspace/*.md' >/dev/null; then
+    for f in /opt/openclaw/workspace/*.md; do
+        dest="/data/.openclaw/workspace/$(basename "$f")"
+        [ -f "$dest" ] || cp "$f" "$dest"
+    done
+fi
+if compgen -G '/opt/openclaw/workspace/skills/*' >/dev/null; then
     mkdir -p /data/.openclaw/workspace/skills
     for f in /opt/openclaw/workspace/skills/*; do
         dest="/data/.openclaw/workspace/skills/$(basename "$f")"
