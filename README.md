@@ -85,6 +85,39 @@ make deploy
 
 The token is picked up automatically — no interactive `gh auth login` needed.
 
+### State Backup & Restore (Optional)
+
+Protect agent state (memory, workspace files, config) against volume loss with a private Git repo.
+
+1. Create a private repo (e.g., `your-user/agent-state`)
+2. Add the SSH key from `vm-setup.sh` as a deploy key with **write access**
+3. Set the Fly secret:
+
+```bash
+fly secrets set STATE_REPO='git@github.com:your-user/agent-state.git' -a my-clawd
+make deploy
+```
+
+**How it works:**
+
+- The agent pushes workspace snapshots to the repo periodically (cron job)
+- On fresh volume deployments, the entrypoint detects no existing state and restores from the repo
+- Existing volumes are never affected — restore only triggers when `MEMORY.md` is absent
+
+**Repo structure:**
+
+```
+agent-state/
+├── workspace/
+│   ├── MEMORY.md
+│   ├── memory/
+│   ├── AGENTS.md
+│   ├── SOUL.md
+│   └── ...
+└── config/
+    └── openclaw.json
+```
+
 ## Configuration
 
 ### Model
