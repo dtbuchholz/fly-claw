@@ -25,8 +25,24 @@ if ! grep -q '.env.secrets' /home/agent/.bashrc 2>/dev/null; then
     echo '[ -f /data/.env.secrets ] && source /data/.env.secrets' >> /home/agent/.bashrc
 fi
 
-# --- 4. Copy base config ---
-cp /opt/openclaw/openclaw.json /data/.openclaw/openclaw.json
+# --- 4. Seed config on first boot, then patch infra keys ---
+if [ ! -f /data/.openclaw/openclaw.json ]; then
+    echo "First boot: seeding config from image"
+    cp /opt/openclaw/openclaw.json /data/.openclaw/openclaw.json
+fi
+
+# Patch infra-level keys (safe to run every deploy — leaves agent-managed keys untouched)
+jq '
+    .gateway.port = 18789 |
+    .gateway.bind = "loopback" |
+    .gateway.mode = "local" |
+    .gateway.auth.mode = "token" |
+    .channels.telegram.enabled = true |
+    .channels.telegram.dmPolicy = "allowlist" |
+    .plugins.entries.telegram.enabled = true |
+    .agents.defaults.sandbox.mode = "off"
+' /data/.openclaw/openclaw.json > /data/.openclaw/openclaw.json.tmp \
+    && mv /data/.openclaw/openclaw.json.tmp /data/.openclaw/openclaw.json
 
 # --- 5. Inject Telegram allowlist ---
 if [ -n "${TELEGRAM_ALLOWED_IDS:-}" ]; then
@@ -38,11 +54,17 @@ if [ -n "${TELEGRAM_ALLOWED_IDS:-}" ]; then
         && mv /data/.openclaw/openclaw.json.tmp /data/.openclaw/openclaw.json
 fi
 
-# --- 6. Copy workspace files (repo versions always win) ---
-cp /opt/openclaw/workspace/*.md /data/.openclaw/workspace/ 2>/dev/null || true
+# --- 6. Seed workspace files (first boot only — never overwrite agent changes) ---
+for f in /opt/openclaw/workspace/*.md; do
+    dest="/data/.openclaw/workspace/$(basename "$f")"
+    [ -f "$dest" ] || cp "$f" "$dest"
+done
 if [ -d /opt/openclaw/workspace/skills ]; then
     mkdir -p /data/.openclaw/workspace/skills
-    cp -r /opt/openclaw/workspace/skills/* /data/.openclaw/workspace/skills/ 2>/dev/null || true
+    for f in /opt/openclaw/workspace/skills/*; do
+        dest="/data/.openclaw/workspace/skills/$(basename "$f")"
+        [ -e "$dest" ] || cp -r "$f" "$dest"
+    done
 fi
 
 # --- 7. Persist git + SSH config ---
