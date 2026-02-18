@@ -41,7 +41,15 @@ jq '
     .channels.telegram.enabled = true |
     .channels.telegram.dmPolicy = "allowlist" |
     .plugins.entries.telegram.enabled = true |
-    .agents.defaults.sandbox.mode = "off"
+    .agents.defaults.sandbox.mode = "off" |
+    .browser.enabled = true |
+    .browser.headless = true |
+    .browser.noSandbox = true |
+    .browser.attachOnly = true |
+    .browser.executablePath = "/usr/bin/chromium" |
+    .browser.defaultProfile = "openclaw" |
+    .browser.profiles.openclaw.cdpPort = 18800 |
+    .browser.profiles.openclaw.color = "#FF4500"
 ' /data/.openclaw/openclaw.json > /data/.openclaw/openclaw.json.tmp \
     && mv /data/.openclaw/openclaw.json.tmp /data/.openclaw/openclaw.json
 
@@ -146,6 +154,25 @@ elif [ -n "${ANTHROPIC_API_KEY:-}" ]; then
         2>&1 || true
 fi
 
-# --- 13. Start gateway (foreground, PID 1) ---
+# --- 13. Start Chromium for browser automation (headless, background) ---
+echo "Starting Chromium (headless)..."
+BROWSER_DATA_DIR=/data/.openclaw/browser/openclaw/user-data
+mkdir -p "$BROWSER_DATA_DIR"
+chown -R agent:agent /data/.openclaw/browser
+su - agent -c "chromium --headless --no-sandbox --disable-gpu \
+    --remote-debugging-port=18800 \
+    --user-data-dir='$BROWSER_DATA_DIR' \
+    about:blank" &>/data/logs/chromium.log &
+CHROMIUM_PID=$!
+# Wait for CDP to be ready
+for _retry in $(seq 1 10); do
+    if curl -s http://127.0.0.1:18800/json/version >/dev/null 2>&1; then
+        echo "Chromium ready (PID $CHROMIUM_PID, CDP on :18800)"
+        break
+    fi
+    sleep 1
+done
+
+# --- 14. Start gateway (foreground, PID 1) ---
 echo "=== Clawd Ready ==="
 exec su - agent -c 'source /data/.env.secrets && openclaw gateway run --port 18789 2>&1 | tee /data/logs/gateway.log'

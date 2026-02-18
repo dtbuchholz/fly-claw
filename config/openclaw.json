@@ -27,6 +27,20 @@
       "provider": "openai"
     }
   },
+  "browser": {
+    "enabled": true,
+    "headless": true,
+    "noSandbox": true,
+    "attachOnly": true,
+    "executablePath": "/usr/bin/chromium",
+    "defaultProfile": "openclaw",
+    "profiles": {
+      "openclaw": {
+        "cdpPort": 18800,
+        "color": "#FF4500"
+      }
+    }
+  },
   "agents": {
     "defaults": {
       "model": {
