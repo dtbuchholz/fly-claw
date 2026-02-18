@@ -25,6 +25,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libasound2 \
     libpangocairo-1.0-0 \
     libgtk-3-0 \
+    rsync \
     && rm -rf /var/lib/apt/lists/*
 
 # GitHub CLI
@@ -66,7 +67,8 @@ COPY config/workspace/ /opt/openclaw/workspace/
 # Scripts
 COPY remote/entrypoint.sh /usr/local/bin/entrypoint.sh
 COPY remote/vm-setup.sh /usr/local/bin/vm-setup.sh
-RUN chmod +x /usr/local/bin/entrypoint.sh /usr/local/bin/vm-setup.sh
+COPY remote/state-sync.sh /usr/local/bin/state-sync.sh
+RUN chmod +x /usr/local/bin/entrypoint.sh /usr/local/bin/vm-setup.sh /usr/local/bin/state-sync.sh
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
     CMD su - agent -c 'source /data/.env.secrets 2>/dev/null && openclaw health' || exit 1

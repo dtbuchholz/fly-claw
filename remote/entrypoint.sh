@@ -87,24 +87,38 @@ ln -sfn /data/.gnupg /home/agent/.gnupg
 
 # --- 8. Restore from state repo (fresh volume only) ---
 # If STATE_REPO is set and no MEMORY.md exists, this is likely a fresh volume.
-# Clone the state repo and restore workspace + config to recover from volume loss.
+# Clone the state repo to /data/state-repo (persistent, reused by sync loop)
+# and restore workspace + config to recover from volume loss.
 if [ -n "${STATE_REPO:-}" ] && [ ! -f /data/.openclaw/workspace/MEMORY.md ]; then
-    echo "Fresh volume detected + STATE_REPO set — restoring workspace..."
+    echo "Fresh volume detected + STATE_REPO set — restoring state..."
     # Ensure GitHub host key is trusted for clone
     su - agent -c 'ssh-keyscan github.com >> ~/.ssh/known_hosts 2>/dev/null' || true
-    if su - agent -c "git clone '${STATE_REPO}' /tmp/state-restore" 2>&1; then
-        if [ -d /tmp/state-restore/workspace ]; then
-            cp -r /tmp/state-restore/workspace/* /data/.openclaw/workspace/ 2>/dev/null || true
+    if su - agent -c "git clone '${STATE_REPO}' /data/state-repo" 2>&1; then
+        # Restore workspace
+        if [ -d /data/state-repo/workspace ]; then
+            cp -r /data/state-repo/workspace/* /data/.openclaw/workspace/ 2>/dev/null || true
             echo "✓ Workspace restored from state repo"
         fi
-        if [ -f /tmp/state-restore/config/openclaw.json ]; then
-            cp /tmp/state-restore/config/openclaw.json /data/.openclaw/openclaw.json
+        # Restore config (root level, matching repo layout)
+        if [ -f /data/state-repo/openclaw.json ]; then
+            cp /data/state-repo/openclaw.json /data/.openclaw/openclaw.json
             echo "✓ Config restored from state repo"
+        fi
+        # Restore cron jobs
+        if [ -d /data/state-repo/cron ]; then
+            mkdir -p /data/.openclaw/cron
+            cp -r /data/state-repo/cron/* /data/.openclaw/cron/ 2>/dev/null || true
+            echo "✓ Cron jobs restored from state repo"
+        fi
+        # Restore agent sessions
+        if [ -d /data/state-repo/agents ]; then
+            mkdir -p /data/.openclaw/agents
+            cp -r /data/state-repo/agents/* /data/.openclaw/agents/ 2>/dev/null || true
+            echo "✓ Agent data restored from state repo"
         fi
     else
         echo "! State repo clone failed — continuing with defaults"
     fi
-    rm -rf /tmp/state-restore
 fi
 
 # --- 9. Fix permissions ---
@@ -172,6 +186,24 @@ for _retry in $(seq 1 10); do
     fi
     sleep 1
 done
+
+# --- 13.5. State sync loop (background, optional) ---
+if [ -n "${STATE_REPO:-}" ]; then
+    SYNC_INTERVAL="${STATE_SYNC_INTERVAL:-1800}"
+    # Ensure persistent clone exists (step 8 only runs on fresh volumes)
+    if [ ! -d /data/state-repo/.git ]; then
+        su - agent -c 'ssh-keyscan github.com >> ~/.ssh/known_hosts 2>/dev/null' || true
+        su - agent -c "git clone '${STATE_REPO}' /data/state-repo" 2>&1 || true
+    fi
+    chown -R agent:agent /data/state-repo 2>/dev/null || true
+    echo "Starting state sync loop (interval: ${SYNC_INTERVAL}s)..."
+    (
+        while sleep "$SYNC_INTERVAL"; do
+            su - agent -c 'source /data/.env.secrets && /usr/local/bin/state-sync.sh' \
+                >>/data/logs/state-sync.log 2>&1 || true
+        done
+    ) &
+fi
 
 # --- 14. Start gateway (foreground, PID 1) ---
 echo "=== Clawd Ready ==="

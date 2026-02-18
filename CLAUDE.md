@@ -15,7 +15,8 @@ Personal AI assistant (OpenClaw) running in a Docker AI Sandbox (local) or Fly.i
 ### Remote (Fly.io)
 
 - `remote/Dockerfile` - Standalone image (debian:bookworm-slim + Node 22 + Chromium + Tailscale + OpenClaw)
-- `remote/entrypoint.sh` - VM init: secrets, config injection, optional Tailscale, gateway startup
+- `remote/entrypoint.sh` - VM init: secrets, config injection, optional Tailscale, state sync, gateway startup
+- `remote/state-sync.sh` - Periodic sync of live state (`/data/.openclaw`) to a remote git repo
 - `remote/fly.toml.example` - Fly.io config template with `{{APP_NAME}}`/`{{REGION}}` placeholders
 - `remote/fly-init.sh` - Generates `fly.toml` from template
 - `remote/deploy.sh` - Validates secrets, creates app/volume if needed, runs `fly deploy`
@@ -45,6 +46,28 @@ The model is configured in `config/openclaw.json` at `agents.defaults.model.prim
 ## Telegram Access Control
 
 Uses `dmPolicy: "allowlist"`. Set `TELEGRAM_ALLOWED_IDS` in `.env` (comma-separated numeric IDs). The startup script injects these into the config via `jq`.
+
+## State Sync
+
+If `STATE_REPO` is set (as a Fly secret), the remote VM automatically syncs live state to a git repo for disaster recovery.
+
+**How it works:**
+
+- On fresh volumes (no `MEMORY.md` found), entrypoint restores state from the repo — workspace, config, cron jobs, and agent data
+- A background loop runs `state-sync.sh` every 30 minutes, pushing changes back to the repo
+- The persistent clone lives at `/data/state-repo` (shared between restore and sync)
+- Only commits when changes are detected; commit messages include a UTC timestamp
+
+**Env vars (Fly secrets):**
+
+- `STATE_REPO` — SSH URL of the state git repo (e.g. `git@github.com:user/clawd-state.git`). Required to enable sync.
+- `STATE_SYNC_INTERVAL` — Seconds between syncs (default: `1800` / 30 minutes)
+
+**Prerequisites:** SSH key and git identity must be configured on the VM via `vm-setup.sh` for push access.
+
+**Synced paths:** `workspace/`, `openclaw.json`, `cron/`, `agents/` (the repo's `.gitignore` excludes sensitive dirs like `identity/` and `credentials/`).
+
+**Logs:** `/data/logs/state-sync.log`
 
 ## Key Commands
 

@@ -100,23 +100,28 @@ make deploy
 
 **How it works:**
 
-- The agent pushes workspace snapshots to the repo periodically (cron job)
+- A background sync loop pushes state to the repo every 30 minutes (no API credits — pure shell)
 - On fresh volume deployments, the entrypoint detects no existing state and restores from the repo
 - Existing volumes are never affected — restore only triggers when `MEMORY.md` is absent
+- Set `STATE_SYNC_INTERVAL` (seconds) to change the sync frequency (default: `1800`)
 
 **Repo structure:**
 
 ```
 agent-state/
+├── openclaw.json
 ├── workspace/
 │   ├── MEMORY.md
 │   ├── memory/
 │   ├── AGENTS.md
 │   ├── SOUL.md
 │   └── ...
-└── config/
-    └── openclaw.json
+├── cron/
+│   └── jobs.json
+└── agents/
 ```
+
+**Logs:** SSH in and check `/data/logs/state-sync.log`.
 
 ## Configuration
 
@@ -189,6 +194,7 @@ clawd/
 ├── remote/
 │   ├── Dockerfile          # Fly.io image
 │   ├── entrypoint.sh
+│   ├── state-sync.sh       # Periodic state → git repo sync
 │   ├── vm-setup.sh
 │   ├── fly.toml.example
 │   ├── fly-init.sh
