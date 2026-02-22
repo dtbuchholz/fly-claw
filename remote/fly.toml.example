@@ -6,16 +6,16 @@ primary_region = "{{REGION}}"
 
 [env]
   FLY_APP_NAME = "{{APP_NAME}}"
-  NODE_OPTIONS = "--max-old-space-size=2048"
+  NODE_OPTIONS = "--max-old-space-size=4096"
 
 [mounts]
   source = "clawd_data"
   destination = "/data"
-  initial_size = "3gb"
+  initial_size = "10gb"
 
 [[vm]]
-  size = "shared-cpu-2x"
-  memory = "4gb"
+  size = "shared-cpu-4x"
+  memory = "8gb"
 
 [[restart]]
   policy = "always"
