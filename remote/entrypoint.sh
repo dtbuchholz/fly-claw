@@ -21,6 +21,21 @@ export BRAVE_API_KEY="${BRAVE_API_KEY:-}"
 EOF
 chmod 600 /data/.env.secrets
 
+# Forward any additional Fly secrets not listed above.
+# Skips system, infrastructure, and entrypoint-consumed env vars.
+_extra_secrets=""
+while IFS='=' read -r key _; do
+    grep -q "^export ${key}=" /data/.env.secrets 2>/dev/null && continue
+    case "$key" in
+        PATH|HOME|HOSTNAME|SHELL|USER|PWD|OLDPWD|SHLVL|TERM|LANG|LC_*|_) continue ;;
+        DEBIAN_FRONTEND|PUPPETEER_*|CHROMIUM_*|NODE_OPTIONS) continue ;;
+        FLY_*|PRIMARY_REGION|LOG_LEVEL) continue ;;
+        TAILSCALE_AUTHKEY|TELEGRAM_ALLOWED_IDS|STATE_REPO|STATE_SYNC_INTERVAL) continue ;;
+    esac
+    _extra_secrets+="$(printf 'export %s="%s"\n' "$key" "${!key}")"$'\n'
+done < <(env)
+[ -n "$_extra_secrets" ] && printf '%s' "$_extra_secrets" >> /data/.env.secrets
+
 # Add sourcing to .bashrc if not already there
 if ! grep -q '.env.secrets' /home/agent/.bashrc 2>/dev/null; then
     echo '[ -f /data/.env.secrets ] && source /data/.env.secrets' >> /home/agent/.bashrc
