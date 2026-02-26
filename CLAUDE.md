@@ -29,6 +29,7 @@ Personal AI assistant (OpenClaw) running in a Docker AI Sandbox (local) or Fly.i
 3. Run `make lint` to check formatting + shell scripts + Dockerfiles
 4. Never put secrets in committed files — use `.env`
 5. Run `make setup` once after cloning to install pre-commit hooks
+6. **Dockerfile binaries**: `RUN` executes as root, so installers that place binaries in `$HOME` (e.g. `/root/.bun/bin/`, `/root/.cargo/bin/`) won't be accessible to the `agent` user at runtime. Always `cp` binaries to `/usr/local/bin/` instead of symlinking to root's home.
 
 ## Secrets
 

@@ -72,8 +72,22 @@
           "softThresholdTokens": 4000
         }
       },
-      "memorySearch": {
-        "provider": "local"
+      "memory": {
+        "backend": "qmd",
+        "citations": "auto",
+        "qmd": {
+          "includeDefaultMemory": true,
+          "update": {
+            "interval": "5m",
+            "debounceMs": 15000,
+            "waitForBootSync": false
+          },
+          "limits": {
+            "maxResults": 6,
+            "maxSnippetChars": 2000,
+            "timeoutMs": 4000
+          }
+        }
       }
     }
   }

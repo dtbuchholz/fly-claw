@@ -26,6 +26,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libpangocairo-1.0-0 \
     libgtk-3-0 \
     rsync \
+    unzip \
     && rm -rf /var/lib/apt/lists/*
 
 # GitHub CLI
@@ -53,8 +54,15 @@ RUN curl -fsSL https://pkgs.tailscale.com/stable/debian/bookworm.noarmor.gpg \
 ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
 ENV CHROMIUM_PATH=/usr/bin/chromium
 
-# OpenClaw
-RUN npm install -g openclaw@latest
+# Bun (required by QMD memory backend)
+RUN curl -fsSL https://bun.sh/install | bash \
+    && cp /root/.bun/bin/bun /usr/local/bin/bun \
+    && cp /root/.bun/bin/bunx /usr/local/bin/bunx \
+    && rm -rf /root/.bun
+
+# OpenClaw + QMD memory backend
+RUN npm install -g openclaw@latest \
+    && bun install -g @tobilu/qmd
 
 # Non-root user with sudo
 RUN groupadd -r agent && useradd -r -g agent -m -s /bin/bash agent \
