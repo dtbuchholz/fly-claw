@@ -32,7 +32,7 @@ while IFS='=' read -r key _; do
         PATH|HOME|HOSTNAME|SHELL|USER|PWD|OLDPWD|SHLVL|TERM|LANG|LC_*|_) continue ;;
         DEBIAN_FRONTEND|PUPPETEER_*|CHROMIUM_*|NODE_OPTIONS) continue ;;
         FLY_*|PRIMARY_REGION|LOG_LEVEL) continue ;;
-        TAILSCALE_AUTHKEY|TELEGRAM_ALLOWED_IDS|STATE_REPO|STATE_SYNC_INTERVAL) continue ;;
+        TAILSCALE_AUTHKEY|TELEGRAM_ALLOWED_IDS|TELEGRAM_GROUP_IDS|STATE_REPO|STATE_SYNC_INTERVAL) continue ;;
     esac
     _extra_secrets+="$(printf 'export %s="%s"\n' "$key" "${!key}")"$'\n'
 done < <(env)
@@ -71,13 +71,26 @@ jq '
 ' /data/.openclaw/openclaw.json > /data/.openclaw/openclaw.json.tmp \
     && mv /data/.openclaw/openclaw.json.tmp /data/.openclaw/openclaw.json
 
-# --- 5. Inject Telegram allowlist ---
+# --- 5. Inject Telegram allowlist + group access ---
 if [ -n "${TELEGRAM_ALLOWED_IDS:-}" ]; then
     ALLOW_JSON=$(echo "$TELEGRAM_ALLOWED_IDS" | tr ',' '\n' \
         | sed 's/^[[:space:]]*//;s/[[:space:]]*$//' \
         | jq -R 'tonumber' | jq -s '.')
     jq --argjson ids "$ALLOW_JSON" '.channels.telegram.allowFrom = $ids' \
         /data/.openclaw/openclaw.json > /data/.openclaw/openclaw.json.tmp \
+        && mv /data/.openclaw/openclaw.json.tmp /data/.openclaw/openclaw.json
+fi
+
+if [ -n "${TELEGRAM_GROUP_IDS:-}" ]; then
+    # Build groups object: { "-100xxx": { "allow": true, "requireMention": false }, ... }
+    GROUPS_JSON=$(echo "$TELEGRAM_GROUP_IDS" | tr ',' '\n' \
+        | sed 's/^[[:space:]]*//;s/[[:space:]]*$//' \
+        | jq -R '{ (.): { "allow": true, "requireMention": false } }' \
+        | jq -s 'add')
+    jq --argjson groups "$GROUPS_JSON" '
+        .channels.telegram.groupPolicy = "allowlist" |
+        .channels.telegram.groups = (.channels.telegram.groups // {} | . * $groups)
+    ' /data/.openclaw/openclaw.json > /data/.openclaw/openclaw.json.tmp \
         && mv /data/.openclaw/openclaw.json.tmp /data/.openclaw/openclaw.json
 fi
 

@@ -171,6 +171,24 @@ per-session in Telegram with `/tts always`, `/tts off`, etc. Requires `OPENAI_AP
 Uses `dmPolicy: "allowlist"` — only user IDs in `TELEGRAM_ALLOWED_IDS` can message the bot. IDs
 are injected into the config at startup.
 
+### Telegram Groups (Optional)
+
+The bot can participate in Telegram group chats with topics enabled:
+
+1. Create a group and enable **Topics** (Group settings → Topics → Enable)
+2. Add the bot to the group and **make it an admin**
+3. Disable privacy mode via BotFather (`/setprivacy` → Disable)
+4. Send a message in the group, then check `make fly-logs` for the group chat ID
+5. Set the group ID as a Fly secret:
+
+```bash
+fly secrets set TELEGRAM_GROUP_IDS='-1003782901451' -a my-clawd
+make deploy
+```
+
+Multiple groups can be comma-separated. The bot will respond without requiring `@mentions` in
+allowed groups.
+
 ## Commands
 
 | Command                    | Description                            |
