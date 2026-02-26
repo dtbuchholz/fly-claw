@@ -11,7 +11,8 @@
     "telegram": {
       "enabled": true,
       "dmPolicy": "allowlist",
-      "allowFrom": []
+      "allowFrom": [],
+      "streaming": "off"
     }
   },
   "plugins": {
