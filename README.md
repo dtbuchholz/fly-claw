@@ -85,6 +85,21 @@ make deploy
 
 The token is picked up automatically — no interactive `gh auth login` needed.
 
+### Slack (Optional)
+
+Enable the Slack channel by setting tokens from your
+[Slack app](https://api.slack.com/apps) (Socket Mode must be enabled):
+
+```bash
+fly secrets set \
+    SLACK_APP_TOKEN='xapp-...' \
+    SLACK_BOT_TOKEN='xoxb-...' \
+    -a my-clawd
+make deploy
+```
+
+The bot responds in any channel it's invited to (`groupPolicy: "open"`).
+
 ### State Backup & Restore (Optional)
 
 Protect agent state (memory, workspace files, config) against volume loss with a private Git repo.

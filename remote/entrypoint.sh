@@ -18,6 +18,8 @@ export TELEGRAM_BOT_TOKEN="${TELEGRAM_BOT_TOKEN:-}"
 export OPENCLAW_GATEWAY_TOKEN="${OPENCLAW_GATEWAY_TOKEN:-}"
 export GH_TOKEN="${GH_TOKEN:-}"
 export BRAVE_API_KEY="${BRAVE_API_KEY:-}"
+export SLACK_APP_TOKEN="${SLACK_APP_TOKEN:-}"
+export SLACK_BOT_TOKEN="${SLACK_BOT_TOKEN:-}"
 EOF
 chmod 600 /data/.env.secrets
 
@@ -54,8 +56,9 @@ jq '
     .gateway.mode = "local" |
     .gateway.auth.mode = "token" |
     .channels.telegram.enabled = true |
-    .channels.telegram.dmPolicy = "allowlist" |
+    .channels.slack.enabled = true |
     .plugins.entries.telegram.enabled = true |
+    .plugins.entries.slack.enabled = true |
     .agents.defaults.sandbox.mode = "off" |
     .browser.enabled = true |
     .browser.headless = true |

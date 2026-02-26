@@ -13,11 +13,21 @@
       "dmPolicy": "allowlist",
       "allowFrom": [],
       "streaming": "off"
+    },
+    "slack": {
+      "enabled": true,
+      "mode": "socket",
+      "groupPolicy": "open",
+      "streaming": "off",
+      "nativeStreaming": false
     }
   },
   "plugins": {
     "entries": {
       "telegram": {
+        "enabled": true
+      },
+      "slack": {
         "enabled": true
       }
     }
