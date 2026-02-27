@@ -71,7 +71,33 @@
           "enabled": true,
           "softThresholdTokens": 4000
         }
+      },
+      "contextPruning": {
+        "mode": "cache-ttl",
+        "ttl": "5m",
+        "keepLastAssistants": 3,
+        "softTrim": {
+          "maxChars": 4000,
+          "headChars": 1500,
+          "tailChars": 1500
+        },
+        "hardClear": {
+          "enabled": true,
+          "placeholder": "[Old tool result cleared]"
+        },
+        "tools": {
+          "allow": ["exec", "read", "web_fetch", "browser", "process"],
+          "deny": ["memory_search", "memory_get"]
+        }
       }
+    }
+  },
+  "session": {
+    "maintenance": {
+      "mode": "enforce",
+      "pruneAfter": "30d",
+      "maxEntries": 500,
+      "maxDiskBytes": "2gb"
     }
   },
   "memory": {
