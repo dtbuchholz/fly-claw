@@ -82,13 +82,12 @@ if [ -n "${TELEGRAM_ALLOWED_IDS:-}" ]; then
 fi
 
 if [ -n "${TELEGRAM_GROUP_IDS:-}" ]; then
-    # Build groups object: { "-100xxx": { "allow": true, "requireMention": false }, ... }
+    # Build groups object: { "-100xxx": { "groupPolicy": "open", "requireMention": false }, ... }
     GROUPS_JSON=$(echo "$TELEGRAM_GROUP_IDS" | tr ',' '\n' \
         | sed 's/^[[:space:]]*//;s/[[:space:]]*$//' \
-        | jq -R '{ (.): { "allow": true, "requireMention": false } }' \
+        | jq -R '{ (.): { "groupPolicy": "open", "requireMention": false } }' \
         | jq -s 'add')
     jq --argjson groups "$GROUPS_JSON" '
-        .channels.telegram.groupPolicy = "allowlist" |
         .channels.telegram.groups = (.channels.telegram.groups // {} | . * $groups)
     ' /data/.openclaw/openclaw.json > /data/.openclaw/openclaw.json.tmp \
         && mv /data/.openclaw/openclaw.json.tmp /data/.openclaw/openclaw.json
@@ -235,6 +234,16 @@ if [ -n "${STATE_REPO:-}" ]; then
         done
     ) &
 fi
+
+# --- 13.7. Pre-warm QMD embeddings (background) ---
+# Downloads GGUF models (~2GB, cached on /data volume) and generates embeddings
+# so the first memory_search isn't slow. Delayed to let the gateway create collections first.
+echo "Scheduling QMD embedding warm-up..."
+(
+    sleep 30
+    su - agent -c 'source /data/.env.secrets && qmd embed' \
+        >>/data/logs/qmd-warmup.log 2>&1 || true
+) &
 
 # --- 14. Start gateway (foreground, PID 1) ---
 echo "=== Clawd Ready ==="

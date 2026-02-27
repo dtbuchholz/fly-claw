@@ -29,7 +29,8 @@ Personal AI assistant (OpenClaw) running in a Docker AI Sandbox (local) or Fly.i
 3. Run `make lint` to check formatting + shell scripts + Dockerfiles
 4. Never put secrets in committed files — use `.env`
 5. Run `make setup` once after cloning to install pre-commit hooks
-6. **Dockerfile binaries**: `RUN` executes as root, so installers that place binaries in `$HOME` (e.g. `/root/.bun/bin/`, `/root/.cargo/bin/`) won't be accessible to the `agent` user at runtime. Always `cp` binaries to `/usr/local/bin/` instead of symlinking to root's home.
+6. **Dockerfile binaries**: `RUN` executes as root, so installers that place binaries in `$HOME` (e.g. `/root/.bun/bin/`, `/root/.cargo/bin/`) won't be accessible to the `agent` user at runtime. Always `cp` binaries to `/usr/local/bin/` instead of symlinking to root's home. For packages with module trees (not standalone binaries), use `npm install -g` instead of `bun install -g` — npm places modules in `/usr/local/lib/node_modules/` with correct wrappers, while bun creates self-referential launcher scripts that break when copied out of `~/.bun/`.
+7. **Native build deps**: Packages with native addons (e.g. `node-llama-cpp` in QMD) need `g++` and `make` in the image, plus write permissions on their build directories (`chmod -R a+w`) since the gateway runs as the non-root `agent` user.
 
 ## Secrets
 
@@ -69,6 +70,23 @@ If `STATE_REPO` is set (as a Fly secret), the remote VM automatically syncs live
 **Synced paths:** `workspace/`, `openclaw.json`, `cron/`, `agents/` (the repo's `.gitignore` excludes sensitive dirs like `identity/` and `credentials/`).
 
 **Logs:** `/data/logs/state-sync.log`
+
+## QMD Memory Backend
+
+Uses [QMD](https://docs.openclaw.ai/concepts/memory#qmd-backend-experimental) for semantic memory search (BM25 + vector embeddings + LLM reranking).
+
+**Config:** Top-level `memory` key in `config/openclaw.json` — NOT under `agents.defaults`. Valid top-level config keys are strict; unknown keys cause `"Config invalid"`.
+
+**Runtime deps:**
+
+- **Bun** — required by QMD at runtime; installed via `curl` and copied to `/usr/local/bin/`
+- **QMD CLI** (`@tobilu/qmd`) — installed via `npm install -g` (not `bun install -g`; see guideline #6)
+- **g++ / make** — required for `node-llama-cpp` native CPU backend build
+- **node-llama-cpp permissions** — `chmod -R a+w` on its directory so the `agent` user can trigger the build
+
+**Entrypoint:** A background warmup job runs `qmd embed` 30 seconds after boot to pre-download GGUF models (~2GB, cached on `/data` volume) and generate embeddings. Without this, the first `memory_search` call would be very slow.
+
+**Logs:** `/data/logs/qmd-warmup.log`
 
 ## Key Commands
 

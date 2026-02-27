@@ -27,6 +27,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libgtk-3-0 \
     rsync \
     unzip \
+    g++ \
+    make \
     && rm -rf /var/lib/apt/lists/*
 
 # GitHub CLI
@@ -54,15 +56,16 @@ RUN curl -fsSL https://pkgs.tailscale.com/stable/debian/bookworm.noarmor.gpg \
 ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
 ENV CHROMIUM_PATH=/usr/bin/chromium
 
-# Bun (required by QMD memory backend)
+# Bun (required by QMD memory backend at runtime)
 RUN curl -fsSL https://bun.sh/install | bash \
     && cp /root/.bun/bin/bun /usr/local/bin/bun \
     && cp /root/.bun/bin/bunx /usr/local/bin/bunx \
     && rm -rf /root/.bun
 
 # OpenClaw + QMD memory backend
-RUN npm install -g openclaw@latest \
-    && bun install -g @tobilu/qmd
+# chmod: node-llama-cpp needs write access for CPU backend build at runtime (runs as agent user)
+RUN npm install -g openclaw@latest @tobilu/qmd@latest \
+    && chmod -R a+w /usr/lib/node_modules/@tobilu/qmd/node_modules/node-llama-cpp/
 
 # Non-root user with sudo
 RUN groupadd -r agent && useradd -r -g agent -m -s /bin/bash agent \
