@@ -1,0 +1,45 @@
+{
+  "version": 1,
+  "jobs": [
+    {
+      "id": "a1b2c3d4-1111-4000-8000-000000000001",
+      "name": "daily-security-audit",
+      "schedule": "0 14 * * *",
+      "enabled": true,
+      "payload": {
+        "model": "openrouter/anthropic/claude-sonnet-4.5",
+        "prompt": "Run the security audit script: bash /data/.openclaw/workspace/scripts/security-audit.sh\n\nIf exit code is 0, reply with just: \"Security audit clean.\"\nIf exit code is non-zero, report each finding with severity and a suggested fix."
+      }
+    },
+    {
+      "id": "a1b2c3d4-2222-4000-8000-000000000002",
+      "name": "daily-state-sync",
+      "schedule": "0 15 * * *",
+      "enabled": true,
+      "payload": {
+        "model": "openrouter/anthropic/claude-sonnet-4.5",
+        "prompt": "Run the state sync script: bash /data/.openclaw/workspace/scripts/state-sync.sh\n\nIf it succeeds, reply with just: \"State sync complete.\"\nIf it fails, report the error and suggest recovery steps."
+      }
+    },
+    {
+      "id": "a1b2c3d4-3333-4000-8000-000000000003",
+      "name": "daily-memory-snapshot",
+      "schedule": "0 8 * * *",
+      "enabled": true,
+      "payload": {
+        "model": "openrouter/anthropic/claude-sonnet-4.5",
+        "prompt": "Review your conversation history from the last 24 hours. If anything notable happened (new learnings, resolved issues, configuration changes, user preferences discovered), write a brief summary to your memory. If nothing notable happened, stay silent — do not write anything."
+      }
+    },
+    {
+      "id": "a1b2c3d4-4444-4000-8000-000000000004",
+      "name": "weekly-memory-rollup",
+      "schedule": "30 8 * * 5",
+      "enabled": true,
+      "payload": {
+        "model": "openrouter/anthropic/claude-sonnet-4.5",
+        "prompt": "Perform a weekly memory rollup:\n1. Read your MEMORY.md file\n2. Review the past week's conversations and memory entries\n3. Consolidate redundant or overlapping entries\n4. Extract recurring patterns or preferences into concise notes\n5. Remove stale or one-off entries that are no longer relevant\n6. Update MEMORY.md with the cleaned, consolidated version\n\nKeep the file concise and well-organized. Focus on durable knowledge, not transient details."
+      }
+    }
+  ]
+}

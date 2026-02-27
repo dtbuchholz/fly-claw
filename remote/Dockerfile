@@ -71,9 +71,10 @@ RUN npm install -g openclaw@latest @tobilu/qmd@latest \
 RUN groupadd -r agent && useradd -r -g agent -m -s /bin/bash agent \
     && echo "agent ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/agent
 
-# Bundle config and workspace
+# Bundle config, workspace, and cron defaults
 COPY config/openclaw.json /opt/openclaw/openclaw.json
 COPY config/workspace/ /opt/openclaw/workspace/
+COPY config/cron/ /opt/openclaw/cron/
 
 # Scripts
 COPY remote/entrypoint.sh /usr/local/bin/entrypoint.sh

@@ -8,7 +8,8 @@ Personal AI assistant (OpenClaw) running in a Docker AI Sandbox (local) or Fly.i
 
 - `template/Dockerfile` - Custom sandbox template extending `docker/sandbox-templates:claude-code`
 - `config/openclaw.json` - OpenClaw gateway config (no secrets)
-- `config/workspace/` - Agent personality files (AGENTS.md, SOUL.md) and skills
+- `config/workspace/` - Agent personality files (AGENTS.md, SOUL.md), skills, and scripts
+- `config/cron/` - Default cron job definitions (seeded on first boot)
 - `scripts/` - Sandbox lifecycle scripts
 - `Makefile` - Primary interface (`make up`, `make down`, `make shell`, etc.)
 
@@ -70,6 +71,37 @@ If `STATE_REPO` is set (as a Fly secret), the remote VM automatically syncs live
 **Synced paths:** `workspace/`, `openclaw.json`, `cron/`, `agents/` (the repo's `.gitignore` excludes sensitive dirs like `identity/` and `credentials/`).
 
 **Logs:** `/data/logs/state-sync.log`
+
+## Cron Jobs
+
+Fresh deployments are seeded with 4 default cron jobs. These run inside the OpenClaw agent (not system crontab) — the gateway's built-in scheduler executes them as agent prompts.
+
+**Default jobs:**
+
+| Job                     | Schedule (UTC) | Purpose                                                 |
+| ----------------------- | -------------- | ------------------------------------------------------- |
+| `daily-security-audit`  | 14:00 daily    | Runs `security-audit.sh`, reports only if issues found  |
+| `daily-state-sync`      | 15:00 daily    | Runs `state-sync.sh` wrapper for agent-level visibility |
+| `daily-memory-snapshot` | 08:00 daily    | Reviews last 24h, writes to memory if notable           |
+| `weekly-memory-rollup`  | Fri 08:30      | Consolidates the week's memory entries                  |
+
+**Config:** `config/cron/jobs.json` — uses OpenClaw's native format (`{"version":1,"jobs":[...]}`). Each job has a pre-generated UUID that the gateway preserves.
+
+**Model override:** Jobs default to `openrouter/anthropic/claude-sonnet-4.5`. Set `CRON_MODEL` as a Fly secret to use a different model (e.g. `CRON_MODEL=openrouter/anthropic/claude-opus-4.5`). The entrypoint substitutes this at seed time via `jq`.
+
+**Seeding behavior:**
+
+- Only seeds when `/data/.openclaw/cron/jobs.json` doesn't exist (first boot)
+- State-repo restore runs _after_ seeding, so backed-up cron state always takes priority
+- Existing VMs are never affected — the seed is skipped entirely if the file exists
+- Once seeded, the agent can modify jobs freely via the gateway; changes persist on the `/data` volume
+
+**Scripts:** The cron jobs reference two shell scripts seeded into the agent's workspace:
+
+- `scripts/security-audit.sh` — checks gateway bind, auth mode, file perms, disk usage, Tailscale, unexpected ports. Exits 0 (silent) or 1 (with details).
+- `scripts/state-sync.sh` — thin wrapper that sources secrets and delegates to `/usr/local/bin/state-sync.sh`.
+
+Scripts are also seeded with "don't overwrite" semantics — the agent can customize them and changes survive redeploys.
 
 ## QMD Memory Backend
 

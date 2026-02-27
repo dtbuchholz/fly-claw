@@ -32,7 +32,7 @@ while IFS='=' read -r key _; do
         PATH|HOME|HOSTNAME|SHELL|USER|PWD|OLDPWD|SHLVL|TERM|LANG|LC_*|_) continue ;;
         DEBIAN_FRONTEND|PUPPETEER_*|CHROMIUM_*|NODE_OPTIONS) continue ;;
         FLY_*|PRIMARY_REGION|LOG_LEVEL) continue ;;
-        TAILSCALE_AUTHKEY|TELEGRAM_ALLOWED_IDS|TELEGRAM_GROUP_IDS|STATE_REPO|STATE_SYNC_INTERVAL) continue ;;
+        TAILSCALE_AUTHKEY|TELEGRAM_ALLOWED_IDS|TELEGRAM_GROUP_IDS|STATE_REPO|STATE_SYNC_INTERVAL|CRON_MODEL) continue ;;
     esac
     _extra_secrets+="$(printf 'export %s="%s"\n' "$key" "${!key}")"$'\n'
 done < <(env)
@@ -106,6 +106,23 @@ if compgen -G '/opt/openclaw/workspace/skills/*' >/dev/null; then
         dest="/data/.openclaw/workspace/skills/$(basename "$f")"
         [ -e "$dest" ] || cp -r "$f" "$dest"
     done
+fi
+if compgen -G '/opt/openclaw/workspace/scripts/*' >/dev/null; then
+    mkdir -p /data/.openclaw/workspace/scripts
+    for f in /opt/openclaw/workspace/scripts/*; do
+        dest="/data/.openclaw/workspace/scripts/$(basename "$f")"
+        [ -e "$dest" ] || cp "$f" "$dest"
+    done
+fi
+
+# --- 6b. Seed default cron jobs (first boot only — state-repo restore overrides if present) ---
+if [ ! -f /data/.openclaw/cron/jobs.json ]; then
+    echo "Seeding default cron jobs..."
+    mkdir -p /data/.openclaw/cron
+    cp /opt/openclaw/cron/jobs.json /data/.openclaw/cron/jobs.json
+    CRON_MODEL="${CRON_MODEL:-openrouter/anthropic/claude-sonnet-4.5}"
+    jq --arg model "$CRON_MODEL" '.jobs |= map(.payload.model = $model)' \
+        /data/.openclaw/cron/jobs.json > /tmp/cron.tmp && mv /tmp/cron.tmp /data/.openclaw/cron/jobs.json
 fi
 
 # --- 7. Persist git + SSH config ---
