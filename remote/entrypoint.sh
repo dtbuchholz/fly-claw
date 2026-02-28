@@ -4,10 +4,12 @@ set -euo pipefail
 echo "=== Clawd Entrypoint ==="
 
 # --- 1. Create persistent dirs ---
-mkdir -p /data/.openclaw/workspace /data/logs
+mkdir -p /data/.openclaw/workspace /data/.claude /data/.codex /data/logs
 
-# --- 2. Symlink ~/.openclaw -> /data/.openclaw ---
+# --- 2. Symlink persistent dirs into agent home ---
 ln -sfn /data/.openclaw /home/agent/.openclaw
+ln -sfn /data/.claude /home/agent/.claude
+ln -sfn /data/.codex /home/agent/.codex
 
 # --- 3. Write secrets to file (sourced by agent user) ---
 cat > /data/.env.secrets <<EOF
@@ -32,7 +34,7 @@ while IFS='=' read -r key _; do
         PATH|HOME|HOSTNAME|SHELL|USER|PWD|OLDPWD|SHLVL|TERM|LANG|LC_*|_) continue ;;
         DEBIAN_FRONTEND|PUPPETEER_*|CHROMIUM_*|NODE_OPTIONS) continue ;;
         FLY_*|PRIMARY_REGION|LOG_LEVEL) continue ;;
-        TAILSCALE_AUTHKEY|TELEGRAM_ALLOWED_IDS|TELEGRAM_GROUP_IDS|STATE_REPO|STATE_SYNC_INTERVAL|CRON_MODEL) continue ;;
+        TAILSCALE_AUTHKEY|TELEGRAM_ALLOWED_IDS|TELEGRAM_GROUP_IDS|STATE_REPO|STATE_SYNC_INTERVAL|CRON_MODEL|CLAUDE_CONFIG_REPO|CODEX_CONFIG_REPO) continue ;;
     esac
     _extra_secrets+="$(printf 'export %s="%s"\n' "$key" "${!key}")"$'\n'
 done < <(env)
@@ -125,6 +127,61 @@ if [ ! -f /data/.openclaw/cron/jobs.json ]; then
         /data/.openclaw/cron/jobs.json > /tmp/cron.tmp && mv /tmp/cron.tmp /data/.openclaw/cron/jobs.json
 fi
 
+# --- 6c. Seed Claude Code config + OpenClaw workspace skills ---
+# Always clones; merges new items without overwriting existing ones.
+# shellcheck disable=SC2016 # Intentional single quotes — GH_TOKEN expands at runtime
+CLAUDE_CONFIG_REPO="${CLAUDE_CONFIG_REPO:-https://github.com/dtbuchholz/claude-config.git}"
+_claude_url="$CLAUDE_CONFIG_REPO"
+[ -n "${GH_TOKEN:-}" ] && _claude_url="${_claude_url/https:\/\/github.com/https://x-access-token:${GH_TOKEN}@github.com}"
+if su - agent -c "git clone '${_claude_url}' /tmp/claude-seed" 2>&1; then
+    # Claude Code CLI config (~/.claude/)
+    [ -f /tmp/claude-seed/settings.json ] && [ ! -f /data/.claude/settings.json ] \
+        && cp /tmp/claude-seed/settings.json /data/.claude/
+    for _dir in hooks skills agents; do
+        if [ -d "/tmp/claude-seed/$_dir" ]; then
+            mkdir -p "/data/.claude/$_dir"
+            for _item in /tmp/claude-seed/"$_dir"/*; do
+                [ -e "$_item" ] || continue
+                _dest="/data/.claude/$_dir/$(basename "$_item")"
+                [ -e "$_dest" ] || cp -r "$_item" "$_dest"
+            done
+        fi
+    done
+    # OpenClaw workspace skills (same repo, dual purpose)
+    if [ -d /tmp/claude-seed/skills ]; then
+        mkdir -p /data/.openclaw/workspace/skills
+        for _item in /tmp/claude-seed/skills/*; do
+            [ -e "$_item" ] || continue
+            _dest="/data/.openclaw/workspace/skills/$(basename "$_item")"
+            [ -e "$_dest" ] || cp -r "$_item" "$_dest"
+        done
+    fi
+    echo "✓ Claude Code config + workspace skills synced"
+fi
+rm -rf /tmp/claude-seed
+
+# --- 6d. Seed Codex CLI config ---
+CODEX_CONFIG_REPO="${CODEX_CONFIG_REPO:-https://github.com/dtbuchholz/codex-config.git}"
+_codex_url="$CODEX_CONFIG_REPO"
+[ -n "${GH_TOKEN:-}" ] && _codex_url="${_codex_url/https:\/\/github.com/https://x-access-token:${GH_TOKEN}@github.com}"
+if su - agent -c "git clone '${_codex_url}' /tmp/codex-seed" 2>&1; then
+    # Codex CLI config (~/.codex/)
+    [ -f /tmp/codex-seed/config.toml.template ] && [ ! -f /data/.codex/config.toml ] \
+        && cp /tmp/codex-seed/config.toml.template /data/.codex/config.toml
+    for _dir in hooks skills agents policy; do
+        if [ -d "/tmp/codex-seed/$_dir" ]; then
+            mkdir -p "/data/.codex/$_dir"
+            for _item in /tmp/codex-seed/"$_dir"/*; do
+                [ -e "$_item" ] || continue
+                _dest="/data/.codex/$_dir/$(basename "$_item")"
+                [ -e "$_dest" ] || cp -r "$_item" "$_dest"
+            done
+        fi
+    done
+    echo "✓ Codex config synced"
+fi
+rm -rf /tmp/codex-seed
+
 # --- 7. Persist git + SSH config ---
 mkdir -p /data/.ssh /data/.gnupg /data/git
 [ -f /data/git/config ] || touch /data/git/config
@@ -169,10 +226,10 @@ if [ -n "${STATE_REPO:-}" ] && [ ! -f /data/.openclaw/workspace/MEMORY.md ]; the
 fi
 
 # --- 9. Fix permissions ---
-chmod 700 /data/.openclaw /data/.ssh /data/.gnupg /data/git
+chmod 700 /data/.openclaw /data/.claude /data/.codex /data/.ssh /data/.gnupg /data/git
 chmod 600 /data/.openclaw/openclaw.json
 [ -s /data/.ssh/id_ed25519 ] && chmod 600 /data/.ssh/id_ed25519
-chown -R agent:agent /data/.openclaw /data/.ssh /data/git /data/.gnupg /data/logs /data/.env.secrets /home/agent/.bashrc
+chown -R agent:agent /data/.openclaw /data/.claude /data/.codex /data/.ssh /data/git /data/.gnupg /data/logs /data/.env.secrets /home/agent/.bashrc
 
 # --- 10. Tailscale (optional) ---
 if [ -n "${TAILSCALE_AUTHKEY:-}" ]; then
@@ -202,6 +259,11 @@ jq '.plugins.entries.telegram.enabled = true' /data/.openclaw/openclaw.json > /d
     && mv /data/.openclaw/openclaw.json.tmp /data/.openclaw/openclaw.json
 chown agent:agent /data/.openclaw/openclaw.json
 chmod 600 /data/.openclaw/openclaw.json
+
+# --- 11b. Enable internal hooks ---
+echo "Enabling hooks..."
+su - agent -c 'source /data/.env.secrets && openclaw hooks enable session-memory' 2>&1 || true
+su - agent -c 'source /data/.env.secrets && openclaw hooks enable boot-md' 2>&1 || true
 
 # --- 12. Onboard API credentials ---
 echo "Registering API credentials..."

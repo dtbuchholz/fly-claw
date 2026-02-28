@@ -72,6 +72,63 @@ If `STATE_REPO` is set (as a Fly secret), the remote VM automatically syncs live
 
 **Logs:** `/data/logs/state-sync.log`
 
+## ACP Harnesses
+
+The image includes [Claude Code](https://www.npmjs.com/package/@anthropic-ai/claude-code) and [Codex](https://www.npmjs.com/package/@openai/codex) CLIs so OpenClaw can spawn coding agent sessions via ACP.
+
+**Config:** `acp` section in `config/openclaw.json`:
+
+```json
+{
+  "acp": {
+    "defaultAgent": "codex",
+    "allowedAgents": ["codex", "claude"]
+  }
+}
+```
+
+**Required env vars:** `ANTHROPIC_API_KEY` (for Claude Code), `OPENAI_API_KEY` (for Codex) — set as Fly secrets.
+
+**CLI config:** Each harness has its own config directory, persisted on `/data` and symlinked into the agent home:
+
+- **Claude Code** — `/data/.claude/` (symlinked to `~/.claude/`). Seeded from `CLAUDE_CONFIG_REPO` with `settings.json`, `hooks/`, `skills/`, `agents/`.
+- **Codex** — `/data/.codex/` (symlinked to `~/.codex/`). Seeded from `CODEX_CONFIG_REPO` with `config.toml`, `hooks/`, `skills/`, `agents/`, `policy/`.
+
+See [Skills Sync](#skills-sync) for how config repos are seeded.
+
+## Hooks
+
+OpenClaw's internal hooks system provides lifecycle automation.
+
+**Config:** `hooks.internal.enabled: true` in `config/openclaw.json` enables the hook system. Two hooks are enabled on every boot via `openclaw hooks enable`:
+
+- **`session-memory`** — auto-saves conversation context to memory on `/new` or `/reset`
+- **`boot-md`** — runs `BOOT.md` instructions on gateway startup (post-deploy verification)
+
+## Skills Sync
+
+Three layers of config/skills are seeded on deploy, each from a different source:
+
+**Layer 1: OpenClaw workspace skills** — Skills the OpenClaw agent uses directly (`workspace/skills/`). Sourced from the `skills/` directory of the Claude config repo.
+
+**Layer 2: Claude Code CLI config** — Global config for ACP Claude Code sessions (`~/.claude/`). Includes `settings.json`, hooks, skills, and agents.
+
+**Layer 3: Codex CLI config** — Global config for ACP Codex sessions (`~/.codex/`). Includes `config.toml`, hooks, skills, agents, and policy.
+
+**Env vars (Fly secrets):**
+
+| Var                  | Default                                           | Purpose                 |
+| -------------------- | ------------------------------------------------- | ----------------------- |
+| `CLAUDE_CONFIG_REPO` | `https://github.com/dtbuchholz/claude-config.git` | Source for Layers 1 + 2 |
+| `CODEX_CONFIG_REPO`  | `https://github.com/dtbuchholz/codex-config.git`  | Source for Layer 3      |
+
+**Seeding behavior:**
+
+- Repos are cloned via HTTPS on every deploy (uses `GH_TOKEN` for auth if set)
+- Root config files (`settings.json`, `config.toml`) are seeded once — never overwritten
+- Subdirectories (`hooks/`, `skills/`, `agents/`, `policy/`) use per-item merge: new items are added, existing items are preserved
+- State-repo restore runs after seeding and overrides everything
+
 ## Cron Jobs
 
 Fresh deployments are seeded with 4 default cron jobs. These run inside the OpenClaw agent (not system crontab) — the gateway's built-in scheduler executes them as agent prompts.

@@ -67,6 +67,9 @@ RUN curl -fsSL https://bun.sh/install | bash \
 RUN npm install -g openclaw@latest @tobilu/qmd@latest \
     && chmod -R a+w /usr/lib/node_modules/@tobilu/qmd/node_modules/node-llama-cpp/
 
+# ACP harnesses (Claude Code + Codex CLIs for agent coding sessions)
+RUN npm install -g @anthropic-ai/claude-code@latest @openai/codex@latest
+
 # Non-root user with sudo
 RUN groupadd -r agent && useradd -r -g agent -m -s /bin/bash agent \
     && echo "agent ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/agent
