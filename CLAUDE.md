@@ -76,13 +76,24 @@ If `STATE_REPO` is set (as a Fly secret), the remote VM automatically syncs live
 
 The image includes [Claude Code](https://www.npmjs.com/package/@anthropic-ai/claude-code) and [Codex](https://www.npmjs.com/package/@openai/codex) CLIs so OpenClaw can spawn coding agent sessions via ACP.
 
-**Config:** `acp` section in `config/openclaw.json`:
+**Config:** `acp` section in `config/openclaw.json`. The `acpx` plugin must also be enabled in `plugins.entries` — without it, the gateway doctor auto-enables the plugin at runtime, triggering a restart loop:
 
 ```json
 {
+  "plugins": {
+    "entries": {
+      "acpx": { "enabled": true }
+    }
+  },
   "acp": {
+    "enabled": true,
+    "dispatch": { "enabled": true },
+    "backend": "acpx",
     "defaultAgent": "codex",
-    "allowedAgents": ["codex", "claude"]
+    "allowedAgents": ["codex", "claude"],
+    "maxConcurrentSessions": 4,
+    "stream": { "coalesceIdleMs": 300, "maxChunkChars": 1200 },
+    "runtime": { "ttlMinutes": 120 }
   }
 }
 ```
