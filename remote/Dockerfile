@@ -65,7 +65,8 @@ RUN curl -fsSL https://bun.sh/install | bash \
 # OpenClaw + QMD memory backend
 # chmod: node-llama-cpp needs write access for CPU backend build at runtime (runs as agent user)
 RUN npm install -g openclaw@latest @tobilu/qmd@latest \
-    && chmod -R a+w /usr/lib/node_modules/@tobilu/qmd/node_modules/node-llama-cpp/
+    && chmod -R a+w /usr/lib/node_modules/@tobilu/qmd/node_modules/node-llama-cpp/ \
+    && chmod -R a+w /usr/lib/node_modules/openclaw/extensions/acpx/
 
 # ACP harnesses (Claude Code + Codex CLIs for agent coding sessions)
 RUN npm install -g @anthropic-ai/claude-code@latest @openai/codex@latest
