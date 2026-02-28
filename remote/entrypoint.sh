@@ -4,7 +4,7 @@ set -euo pipefail
 echo "=== Clawd Entrypoint ==="
 
 # --- 1. Create persistent dirs ---
-mkdir -p /data/.openclaw/workspace /data/.claude /data/.codex /data/logs
+mkdir -p /data/.openclaw/workspace /data/.openclaw/extensions /data/.claude /data/.codex /data/logs
 
 # --- 2. Symlink persistent dirs into agent home ---
 ln -sfn /data/.openclaw /home/agent/.openclaw
@@ -69,7 +69,11 @@ jq '
     .browser.executablePath = "/usr/bin/chromium" |
     .browser.defaultProfile = "openclaw" |
     .browser.profiles.openclaw.cdpPort = 18800 |
-    .browser.profiles.openclaw.color = "#FF4500"
+    .browser.profiles.openclaw.color = "#FF4500" |
+    .plugins.entries.acpx.enabled = true |
+    .acp.enabled = true |
+    .acp.backend = "acpx" |
+    .acp.dispatch.enabled = true
 ' /data/.openclaw/openclaw.json > /data/.openclaw/openclaw.json.tmp \
     && mv /data/.openclaw/openclaw.json.tmp /data/.openclaw/openclaw.json
 
@@ -254,8 +258,11 @@ fi
 # --- 11. Doctor ---
 echo "Running openclaw doctor..."
 su - agent -c 'source /data/.env.secrets && openclaw doctor --fix' 2>&1 || true
-# Doctor may disable the telegram plugin; force it back on
-jq '.plugins.entries.telegram.enabled = true' /data/.openclaw/openclaw.json > /data/.openclaw/openclaw.json.tmp \
+# Doctor may disable plugins; force telegram + acpx back on
+jq '
+    .plugins.entries.telegram.enabled = true |
+    .plugins.entries.acpx.enabled = true
+' /data/.openclaw/openclaw.json > /data/.openclaw/openclaw.json.tmp \
     && mv /data/.openclaw/openclaw.json.tmp /data/.openclaw/openclaw.json
 chown agent:agent /data/.openclaw/openclaw.json
 chmod 600 /data/.openclaw/openclaw.json

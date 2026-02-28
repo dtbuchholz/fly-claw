@@ -29,6 +29,9 @@
       },
       "slack": {
         "enabled": true
+      },
+      "acpx": {
+        "enabled": true
       }
     }
   },
@@ -101,8 +104,19 @@
     }
   },
   "acp": {
+    "enabled": true,
+    "dispatch": { "enabled": true },
+    "backend": "acpx",
     "defaultAgent": "codex",
-    "allowedAgents": ["codex", "claude"]
+    "allowedAgents": ["codex", "claude"],
+    "maxConcurrentSessions": 4,
+    "stream": {
+      "coalesceIdleMs": 300,
+      "maxChunkChars": 1200
+    },
+    "runtime": {
+      "ttlMinutes": 120
+    }
   },
   "hooks": {
     "internal": {
