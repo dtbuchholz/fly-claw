@@ -22,6 +22,8 @@ Personal AI assistant (OpenClaw) running in a Docker AI Sandbox (local) or Fly.i
 - `remote/fly-init.sh` - Generates `fly.toml` from template
 - `remote/deploy.sh` - Validates secrets, creates app/volume if needed, runs `fly deploy`
 - `remote/vm-setup.sh` - Interactive wizard for git identity, SSH keys, commit signing, GitHub CLI
+- `remote/acp-auth.sh` - Interactive OAuth setup for Claude Code + Codex ACP harnesses
+- `.github/workflows/deploy.yml` - CI auto-deploy to Fly.io on pushes to `main` (triggered by `remote/`, `config/` changes)
 
 ## Workflow Guidelines
 
@@ -98,7 +100,10 @@ The image includes [Claude Code](https://www.npmjs.com/package/@anthropic-ai/cla
 }
 ```
 
-**Required env vars:** `ANTHROPIC_API_KEY` (for Claude Code), `OPENAI_API_KEY` (for Codex) — set as Fly secrets.
+**Auth:** Each CLI uses OAuth rather than raw API keys. Run `make fly-auth` to set up both:
+
+- **Claude Code** — `claude setup-token` generates a long-lived OAuth token (1 year). Set it as a Fly secret: `CLAUDE_CODE_OAUTH_TOKEN`. The CLI reads this from the environment automatically.
+- **Codex** — `codex login --device-auth` does a device code flow (headless-friendly). Credentials are stored in `~/.codex/auth.json` on the persistent volume, using ChatGPT OAuth with auto-refresh.
 
 **CLI config:** Each harness has its own config directory, persisted on `/data` and symlinked into the agent home:
 
@@ -204,6 +209,7 @@ make deploy               # Deploy to Fly.io
 make fly-logs             # Tail remote logs
 make fly-status           # Check remote VM status
 make fly-console          # SSH into remote VM
+make fly-auth             # Set up OAuth for ACP harnesses
 ```
 
 ## OpenClaw Docs

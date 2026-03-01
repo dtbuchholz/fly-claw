@@ -1,5 +1,5 @@
 .PHONY: build up down status logs shell reset restart onboard network-setup help \
-       fly-init deploy fly-logs fly-status fly-console \
+       fly-init deploy fly-logs fly-status fly-console fly-auth \
        format format-check lint lint-shell lint-docker setup
 
 SANDBOX_NAME ?= clawd
@@ -39,6 +39,7 @@ help:
 	@echo "  make fly-logs             Tail remote logs"
 	@echo "  make fly-status           Check remote VM status"
 	@echo "  make fly-console          SSH into remote VM"
+	@echo "  make fly-auth             Set up OAuth for ACP harnesses"
 
 build:
 	@echo "Building sandbox template..."
@@ -143,3 +144,7 @@ fly-status:
 fly-console:
 	@test -n "$(FLY_APP)" || (echo "Error: fly.toml not found. Run: make fly-init APP=<name>" && false)
 	fly ssh console -a $(FLY_APP)
+
+fly-auth:
+	@test -n "$(FLY_APP)" || (echo "Error: fly.toml not found. Run: make fly-init APP=<name>" && false)
+	@./remote/acp-auth.sh $(FLY_APP)
