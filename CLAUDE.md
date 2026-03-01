@@ -167,20 +167,21 @@ Three layers of config/skills are seeded on deploy, each from a different source
 
 ## Cron Jobs
 
-Fresh deployments are seeded with 4 default cron jobs. These run inside the OpenClaw agent (not system crontab) — the gateway's built-in scheduler executes them as agent prompts.
+Fresh deployments are seeded with 5 default cron jobs. These run inside the OpenClaw agent (not system crontab) — the gateway's built-in scheduler executes them as agent prompts.
 
 **Default jobs:**
 
-| Job                     | Schedule (UTC) | Purpose                                                 |
-| ----------------------- | -------------- | ------------------------------------------------------- |
-| `daily-security-audit`  | 14:00 daily    | Runs `security-audit.sh`, reports only if issues found  |
-| `daily-state-sync`      | 15:00 daily    | Runs `state-sync.sh` wrapper for agent-level visibility |
-| `daily-memory-snapshot` | 08:00 daily    | Reviews last 24h, writes to memory if notable           |
-| `weekly-memory-rollup`  | Fri 08:30      | Consolidates the week's memory entries                  |
+| Job                        | Schedule (UTC) | Purpose                                                     |
+| -------------------------- | -------------- | ----------------------------------------------------------- |
+| `daily-security-audit`     | 14:00 daily    | Runs `security-audit.sh`, reports only if issues found      |
+| `daily-state-sync`         | 15:00 daily    | Runs `state-sync.sh` wrapper for agent-level visibility     |
+| `daily-memory-snapshot`    | 08:00 daily    | Reviews last 24h, writes to memory if notable               |
+| `weekly-memory-rollup`     | Fri 08:30      | Consolidates the week's memory entries                      |
+| `working-context-snapshot` | Every 50 min   | Saves in-flight task context to `memory/working-context.md` |
 
 **Config:** `config/cron/jobs.json` — uses OpenClaw's native format (`{"version":1,"jobs":[...]}`). Each job has a pre-generated UUID that the gateway preserves.
 
-**Model override:** Jobs default to `anthropic/claude-sonnet-4-5`. Set `CRON_MODEL` as a Fly secret to use a different model (e.g. `CRON_MODEL=anthropic/claude-opus-4-6`). If only OpenRouter credentials are present, the entrypoint defaults cron to `openrouter/openai/gpt-5.2-codex` unless `CRON_MODEL` is explicitly set. The entrypoint substitutes this at seed time via `jq`.
+**Model override:** Jobs default to `anthropic/claude-sonnet-4-5`. Set `CRON_MODEL` as a Fly secret to use a different model (e.g. `CRON_MODEL=anthropic/claude-opus-4-6`). If only OpenRouter credentials are present, the entrypoint defaults cron to `openrouter/openai/gpt-5.2-codex` unless `CRON_MODEL` is explicitly set. Jobs using Haiku (e.g. `working-context-snapshot`) are excluded from the override. The entrypoint substitutes this at seed time via `jq`.
 
 **Seeding behavior:**
 

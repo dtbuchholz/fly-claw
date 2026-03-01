@@ -40,6 +40,20 @@
         "model": "anthropic/claude-sonnet-4-5",
         "prompt": "Perform a weekly memory rollup:\n1. Read your MEMORY.md file\n2. Review the past week's conversations and memory entries\n3. Consolidate redundant or overlapping entries\n4. Extract recurring patterns or preferences into concise notes\n5. Remove stale or one-off entries that are no longer relevant\n6. Update MEMORY.md with the cleaned, consolidated version\n\nKeep the file concise and well-organized. Focus on durable knowledge, not transient details."
       }
+    },
+    {
+      "id": "a1b2c3d4-5555-4000-8000-000000000005",
+      "name": "working-context-snapshot",
+      "schedule": { "kind": "every", "everyMs": 3000000 },
+      "enabled": true,
+      "payload": {
+        "kind": "agentTurn",
+        "model": "anthropic/claude-haiku-4-5",
+        "timeoutSeconds": 60,
+        "message": "You are a working-context snapshot agent. Your job:\n\n1. Read the recent session history for the main session (sessionKey: 'agent:main:main'). Use sessions_history with limit 20.\n2. Evaluate: is there meaningful user activity (not just heartbeats, cron notifications, or NO_REPLY)? If no real conversation happened, reply ANNOUNCE_SKIP.\n3. If there IS meaningful activity, write memory/working-context.md with this format:\n\n# Working Context\n_Snapshot: <current UTC timestamp>_\n\n## Active Task\n<1-2 sentences>\n\n## Current Status\n<bullet points>\n\n## Next Steps\n<bullet points>\n\n## Key Details\n<specific values, errors, paths>\n\nKeep it under 25 lines. Overwrite each time.\n4. After writing, reply ANNOUNCE_SKIP."
+      },
+      "sessionTarget": "isolated",
+      "delivery": { "mode": "none" }
     }
   ]
 }
