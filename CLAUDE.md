@@ -103,7 +103,7 @@ The image includes [Claude Code](https://www.npmjs.com/package/@anthropic-ai/cla
 **Auth:** Each CLI uses OAuth rather than raw API keys. Run `make fly-auth` to set up both:
 
 - **Claude Code** — `claude setup-token` generates a long-lived OAuth token (1 year). Set it as a Fly secret: `CLAUDE_CODE_OAUTH_TOKEN`. The CLI reads this from the environment automatically.
-- **Codex** — `codex login --device-auth` does a device code flow (headless-friendly). Credentials are stored in `~/.codex/auth.json` on the persistent volume, using ChatGPT OAuth with auto-refresh.
+- **Codex** — `codex login --device-auth` does a device code flow (headless-friendly). Credentials are stored in `~/.codex/auth.json` on the persistent volume, using ChatGPT OAuth with auto-refresh. A wrapper script at `/usr/local/bin/codex` unsets `OPENAI_API_KEY` before invoking the real binary (`/usr/bin/codex`) so the CLI uses OAuth instead of the API key. `OPENAI_API_KEY` remains available to other processes (TTS, etc.).
 
 **CLI config:** Each harness has its own config directory, persisted on `/data` and symlinked into the agent home:
 
