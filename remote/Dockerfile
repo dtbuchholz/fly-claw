@@ -65,8 +65,7 @@ RUN curl -fsSL https://bun.sh/install | bash \
 # OpenClaw + QMD memory backend
 # chmod: node-llama-cpp needs write access for CPU backend build at runtime (runs as agent user)
 RUN npm install -g openclaw@latest @tobilu/qmd@latest \
-    && chmod -R a+w /usr/lib/node_modules/@tobilu/qmd/node_modules/node-llama-cpp/ \
-    && chmod -R a+w /usr/lib/node_modules/openclaw/extensions/acpx/
+    && chmod -R a+w /usr/lib/node_modules/@tobilu/qmd/node_modules/node-llama-cpp/
 
 # ACP harnesses (Claude Code + Codex CLIs for agent coding sessions)
 RUN npm install -g @anthropic-ai/claude-code@latest @openai/codex@latest
@@ -74,6 +73,9 @@ RUN npm install -g @anthropic-ai/claude-code@latest @openai/codex@latest
 # Non-root user with sudo
 RUN groupadd -r agent && useradd -r -g agent -m -s /bin/bash agent \
     && echo "agent ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/agent
+
+# Fix acpx plugin ownership — OpenClaw blocks world-writable extensions dirs
+RUN chown -R agent:agent /usr/lib/node_modules/openclaw/extensions/acpx/ 2>/dev/null || true
 
 # Bundle config, workspace, and cron defaults
 COPY config/openclaw.json /opt/openclaw/openclaw.json

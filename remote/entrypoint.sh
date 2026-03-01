@@ -234,6 +234,8 @@ chmod 700 /data/.openclaw /data/.claude /data/.codex /data/.ssh /data/.gnupg /da
 chmod 600 /data/.openclaw/openclaw.json
 [ -s /data/.ssh/id_ed25519 ] && chmod 600 /data/.ssh/id_ed25519
 chown -R agent:agent /data/.openclaw /data/.claude /data/.codex /data/.ssh /data/git /data/.gnupg /data/logs /data/.env.secrets /home/agent/.bashrc
+# acpx plugin dir must be owned by agent — OpenClaw blocks world-writable extensions
+chown -R agent:agent /usr/lib/node_modules/openclaw/extensions/acpx/ 2>/dev/null || true
 
 # --- 10. Tailscale (optional) ---
 if [ -n "${TAILSCALE_AUTHKEY:-}" ]; then
