@@ -23,20 +23,13 @@ echo "Tokens persist on the /data volume across redeploys."
 echo ""
 
 cat <<'EOF'
-Opening interactive SSH session. Run these commands:
+Opening interactive SSH session as the agent user.
+Run these commands:
 ──────────────────────────────────────────────────────
-
-  su - agent
 
   # 1. Claude Code (Anthropic) — setup-token flow
   #    Prints a URL → open in browser → copy the token.
-  #    Then set it as a Fly secret (NOT stored in the CLI):
-  #
-  #      claude setup-token
-  #      exit  # back to root
-  #      exit  # back to local
-  #      fly secrets set CLAUDE_CODE_OAUTH_TOKEN="sk-ant-oat01-..." -a <app>
-  #
+  #    Token must be set as a Fly secret afterward (see below).
   claude setup-token
 
   # 2. Codex (OpenAI) — device auth flow
@@ -48,8 +41,7 @@ Opening interactive SSH session. Run these commands:
   claude auth status
   codex login status
 
-  exit  # exit agent shell
-  exit  # exit SSH
+  exit
 
 ──────────────────────────────────────────────────────
 
@@ -59,7 +51,7 @@ NOTE: After exiting, set the Claude token as a Fly secret:
 
 EOF
 
-fly ssh console -a "$FLY_APP"
+fly ssh console -a "$FLY_APP" -u agent
 
 echo ""
 echo "=== Done ==="

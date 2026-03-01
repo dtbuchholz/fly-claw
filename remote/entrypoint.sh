@@ -71,6 +71,7 @@ jq '
     .browser.profiles.openclaw.cdpPort = 18800 |
     .browser.profiles.openclaw.color = "#FF4500" |
     .plugins.entries.acpx.enabled = true |
+    .plugins.entries.acpx.config.permissionMode = "approve-all" |
     .acp.enabled = true |
     .acp.backend = "acpx" |
     .acp.dispatch.enabled = true
@@ -263,7 +264,8 @@ su - agent -c 'source /data/.env.secrets && openclaw doctor --fix' 2>&1 || true
 # Doctor may disable plugins; force telegram + acpx back on
 jq '
     .plugins.entries.telegram.enabled = true |
-    .plugins.entries.acpx.enabled = true
+    .plugins.entries.acpx.enabled = true |
+    .plugins.entries.acpx.config.permissionMode = "approve-all"
 ' /data/.openclaw/openclaw.json > /data/.openclaw/openclaw.json.tmp \
     && mv /data/.openclaw/openclaw.json.tmp /data/.openclaw/openclaw.json
 chown agent:agent /data/.openclaw/openclaw.json
@@ -334,5 +336,8 @@ echo "Scheduling QMD embedding warm-up..."
 ) &
 
 # --- 14. Start gateway (foreground, PID 1) ---
+# Unset OPENAI_API_KEY so child processes (codex-acp adapter) use OAuth
+# instead of the API key. The gateway doesn't need it (uses OpenRouter via onboard).
+# OPENAI_API_KEY remains in .env.secrets for interactive SSH sessions.
 echo "=== Clawd Ready ==="
-exec su - agent -c 'source /data/.env.secrets && openclaw gateway run --port 18789 2>&1 | tee /data/logs/gateway.log'
+exec su - agent -c 'source /data/.env.secrets && unset OPENAI_API_KEY && openclaw gateway run --port 18789 2>&1 | tee /data/logs/gateway.log'

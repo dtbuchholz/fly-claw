@@ -31,7 +31,10 @@
         "enabled": true
       },
       "acpx": {
-        "enabled": true
+        "enabled": true,
+        "config": {
+          "permissionMode": "approve-all"
+        }
       }
     }
   },
