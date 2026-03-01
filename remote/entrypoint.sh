@@ -73,6 +73,7 @@ jq '
     .browser.profiles.openclaw.color = "#FF4500" |
     .plugins.entries.acpx.enabled = true |
     .plugins.entries.acpx.config.permissionMode = "approve-all" |
+    .tools.sessions.visibility = "agent" |
     .acp.enabled = true |
     .acp.backend = "acpx" |
     .acp.dispatch.enabled = true
