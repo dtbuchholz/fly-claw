@@ -196,6 +196,16 @@ Uses [QMD](https://docs.openclaw.ai/concepts/memory#qmd-backend-experimental) fo
 
 **Logs:** `/data/logs/qmd-warmup.log`
 
+## Summarize CLI
+
+Uses [@steipete/summarize](https://github.com/steipete/summarize) to extract and summarize content from URLs, YouTube videos, podcasts, audio/video files, and PDFs.
+
+**Runtime deps:** `ffmpeg` (apt), `yt-dlp` (standalone binary), `@steipete/summarize` (npm global)
+
+**Skill:** `config/workspace/skills/summarize/SKILL.md` — loaded by the gateway when `summarize` binary is present (`requires.bins`)
+
+**Environment:** Uses `OPENROUTER_API_KEY` (already set on the VM) for model access. No additional secrets needed.
+
 ## Key Commands
 
 ```bash

@@ -70,6 +70,14 @@ RUN npm install -g openclaw@latest @tobilu/qmd@latest \
 # ACP harnesses (Claude Code + Codex CLIs for agent coding sessions)
 RUN npm install -g @anthropic-ai/claude-code@latest @openai/codex@latest
 
+# Media summarization CLI + dependencies (ffmpeg for transcoding, yt-dlp for YouTube)
+RUN npm install -g @steipete/summarize@latest \
+    && apt-get update && apt-get install -y --no-install-recommends ffmpeg \
+    && rm -rf /var/lib/apt/lists/* \
+    && curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp \
+        -o /usr/local/bin/yt-dlp \
+    && chmod +x /usr/local/bin/yt-dlp
+
 # Codex wrapper: unset OPENAI_API_KEY so Codex uses OAuth (from codex login --device-auth)
 # instead of the API key. OPENAI_API_KEY stays available for other processes (TTS, etc.).
 # Real binary is at /usr/bin/codex; wrapper takes precedence via /usr/local/bin PATH order.
