@@ -15,9 +15,9 @@ if [ -f "$ROOT_DIR/.env" ]; then
     set +a
 fi
 
-# Require API credentials (direct Anthropic key or OpenRouter key)
-if [ -z "${ANTHROPIC_API_KEY:-}" ] && [ -z "${OPENROUTER_API_KEY:-}" ]; then
-    echo "Error: Set ANTHROPIC_API_KEY or OPENROUTER_API_KEY in .env"
+# Require API credentials (setup-token, Anthropic key, or OpenRouter key)
+if [ -z "${CLAUDE_CODE_OAUTH_TOKEN:-}" ] && [ -z "${ANTHROPIC_API_KEY:-}" ] && [ -z "${OPENROUTER_API_KEY:-}" ]; then
+    echo "Error: Set CLAUDE_CODE_OAUTH_TOKEN, ANTHROPIC_API_KEY, or OPENROUTER_API_KEY in .env"
     exit 1
 fi
 
@@ -28,14 +28,22 @@ if [ -z "${OPENCLAW_GATEWAY_TOKEN:-}" ]; then
     echo "  (Add OPENCLAW_GATEWAY_TOKEN=$OPENCLAW_GATEWAY_TOKEN to .env to persist)"
 fi
 
+# Select a safe default primary model based on available credentials.
+DEFAULT_PRIMARY_MODEL="anthropic/claude-opus-4-6"
+if [ -z "${CLAUDE_CODE_OAUTH_TOKEN:-}" ] && [ -z "${ANTHROPIC_API_KEY:-}" ] && [ -n "${OPENROUTER_API_KEY:-}" ]; then
+    DEFAULT_PRIMARY_MODEL="openrouter/openai/gpt-5.2-codex"
+    echo "No Anthropic credentials found; defaulting primary model to $DEFAULT_PRIMARY_MODEL"
+fi
+
 # Build env flags passed to every sandbox exec that runs OpenClaw
 OC_ENV=(
     -e "TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN:-}"
     -e "OPENCLAW_GATEWAY_TOKEN=${OPENCLAW_GATEWAY_TOKEN}"
 )
-[ -n "${ANTHROPIC_API_KEY:-}" ]   && OC_ENV+=(-e "ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}")
-[ -n "${OPENROUTER_API_KEY:-}" ]  && OC_ENV+=(-e "OPENROUTER_API_KEY=${OPENROUTER_API_KEY}")
-[ -n "${OPENAI_API_KEY:-}" ]      && OC_ENV+=(-e "OPENAI_API_KEY=${OPENAI_API_KEY}")
+[ -n "${CLAUDE_CODE_OAUTH_TOKEN:-}" ] && OC_ENV+=(-e "CLAUDE_CODE_OAUTH_TOKEN=${CLAUDE_CODE_OAUTH_TOKEN}")
+[ -n "${ANTHROPIC_API_KEY:-}" ]      && OC_ENV+=(-e "ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}")
+[ -n "${OPENROUTER_API_KEY:-}" ]     && OC_ENV+=(-e "OPENROUTER_API_KEY=${OPENROUTER_API_KEY}")
+[ -n "${OPENAI_API_KEY:-}" ]         && OC_ENV+=(-e "OPENAI_API_KEY=${OPENAI_API_KEY}")
 
 # Check if sandbox already exists
 if docker sandbox ls 2>/dev/null | grep -q "$SANDBOX_NAME"; then
@@ -58,14 +66,18 @@ docker sandbox exec "$SANDBOX_NAME" mkdir -p /home/agent/.openclaw/workspace
 # Copy config, injecting Telegram allowlist from env if set
 if [ -n "${TELEGRAM_ALLOWED_IDS:-}" ]; then
     ALLOW_JSON=$(echo "$TELEGRAM_ALLOWED_IDS" | tr ',' '\n' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//' | jq -R 'tonumber' | jq -s '.')
-    jq --argjson ids "$ALLOW_JSON" '.channels.telegram.allowFrom = $ids' \
+    jq --argjson ids "$ALLOW_JSON" --arg model "$DEFAULT_PRIMARY_MODEL" \
+        '.channels.telegram.allowFrom = $ids | .agents.defaults.model.primary = $model' \
         "$ROOT_DIR/config/openclaw.json" > "$ROOT_DIR/.config-tmp.json"
     docker sandbox exec "$SANDBOX_NAME" \
         cp "$ROOT_DIR/.config-tmp.json" /home/agent/.openclaw/openclaw.json
     rm -f "$ROOT_DIR/.config-tmp.json"
 else
+    jq --arg model "$DEFAULT_PRIMARY_MODEL" '.agents.defaults.model.primary = $model' \
+        "$ROOT_DIR/config/openclaw.json" > "$ROOT_DIR/.config-tmp.json"
     docker sandbox exec "$SANDBOX_NAME" \
-        cp "$ROOT_DIR/config/openclaw.json" /home/agent/.openclaw/openclaw.json
+        cp "$ROOT_DIR/.config-tmp.json" /home/agent/.openclaw/openclaw.json
+    rm -f "$ROOT_DIR/.config-tmp.json"
 fi
 
 # Lock down permissions (doctor warns if too open)
@@ -101,20 +113,40 @@ docker sandbox exec \
     "$SANDBOX_NAME" \
     openclaw doctor --fix > /dev/null 2>&1 || true
 
-# Register API key in agent auth store
+# Register API credentials in agent auth store
+# Primary: Anthropic subscription (setup-token) > Anthropic API key
+anthropic_registered=0
+if [ -n "${CLAUDE_CODE_OAUTH_TOKEN:-}" ]; then
+    echo "Registering Anthropic credentials (setup-token)..."
+    if docker sandbox exec \
+        "${OC_ENV[@]}" \
+        "$SANDBOX_NAME" \
+        openclaw onboard --auth-choice setupToken --token-provider anthropic --token "$CLAUDE_CODE_OAUTH_TOKEN" \
+        > /dev/null 2>&1; then
+        anthropic_registered=1
+    else
+        echo "Warning: setup-token auth failed; trying Anthropic API key if available."
+    fi
+fi
+if [ "$anthropic_registered" -eq 0 ] && [ -n "${ANTHROPIC_API_KEY:-}" ]; then
+    echo "Registering Anthropic credentials (API key)..."
+    if docker sandbox exec \
+        "${OC_ENV[@]}" \
+        "$SANDBOX_NAME" \
+        openclaw onboard --auth-choice apiKey --token-provider anthropic --token "$ANTHROPIC_API_KEY" \
+        > /dev/null 2>&1; then
+        anthropic_registered=1
+    else
+        echo "Warning: Anthropic API key onboarding failed."
+    fi
+fi
+# Secondary: OpenRouter (always register if present, for non-Anthropic models)
 if [ -n "${OPENROUTER_API_KEY:-}" ]; then
     echo "Registering OpenRouter credentials..."
     docker sandbox exec \
         "${OC_ENV[@]}" \
         "$SANDBOX_NAME" \
         openclaw onboard --auth-choice apiKey --token-provider openrouter --token "$OPENROUTER_API_KEY" \
-        > /dev/null 2>&1 || true
-elif [ -n "${ANTHROPIC_API_KEY:-}" ]; then
-    echo "Registering Anthropic credentials..."
-    docker sandbox exec \
-        "${OC_ENV[@]}" \
-        "$SANDBOX_NAME" \
-        openclaw onboard --auth-choice apiKey --token-provider anthropic --token "$ANTHROPIC_API_KEY" \
         > /dev/null 2>&1 || true
 fi
 

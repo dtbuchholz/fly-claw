@@ -41,12 +41,29 @@ Secrets live in `.env` (gitignored). They are passed to the sandbox via environm
 
 ## API Provider
 
-Supports OpenRouter (recommended) or direct Anthropic. Set one in `.env`:
+Anthropic subscription is the primary provider. OpenRouter is kept as secondary for non-Anthropic models (GPT, Gemini, etc.). Set credentials in `.env`:
 
-- **OpenRouter**: `OPENROUTER_API_KEY=sk-or-...` — model IDs in config use `openrouter/` prefix (e.g. `openrouter/anthropic/claude-opus-4.5`)
-- **Anthropic**: `ANTHROPIC_API_KEY=sk-ant-...` — model IDs use bare names (e.g. `claude-sonnet-4-20250514`)
+- **Anthropic subscription (recommended)**: `CLAUDE_CODE_OAUTH_TOKEN=sk-ant-oat-...` — generate with `claude setup-token`. Reuses your Pro/Max plan instead of per-token billing. Model IDs use `anthropic/` prefix (e.g. `anthropic/claude-opus-4-6`). Caveats: no prompt caching, no extended context (200K max), no cost tracking in OpenRouter dashboard.
+- **Direct Anthropic API key**: `ANTHROPIC_API_KEY=sk-ant-...` — same `anthropic/` prefix model IDs. Standard per-token billing with prompt caching and full context support.
+- **OpenRouter (secondary)**: `OPENROUTER_API_KEY=sk-or-...` — for non-Anthropic models only. Model IDs use `openrouter/` prefix (e.g. `openrouter/openai/gpt-5.2-codex`).
 
-The model is configured in `config/openclaw.json` at `agents.defaults.model.primary`.
+Auth priority: setup-token > Anthropic API key > OpenRouter. If setup-token onboarding fails and `ANTHROPIC_API_KEY` is present, the scripts automatically fall back to the API key path. Both Anthropic and OpenRouter can be registered simultaneously (the gateway routes based on model prefix). The model is configured in `config/openclaw.json` at `agents.defaults.model.primary`.
+
+If only `OPENROUTER_API_KEY` is set (no Anthropic credentials), startup scripts override the default primary model to `openrouter/openai/gpt-5.2-codex` to avoid booting with an unauthenticated Anthropic default.
+
+## Context Management
+
+Prevents token explosion in long-running Telegram threads. Configured in `config/openclaw.json` under `agents.defaults`:
+
+- **`contextTokens: 200000`** — hard budget; the gateway compacts when approaching this limit
+- **`compaction.reserveTokensFloor: 30000`** — keeps 30K tokens free for the next response
+- **`compaction.memoryFlush`** — flushes compacted context to QMD memory before discarding
+- **`contextPruning`** — `cache-ttl` mode clears old tool results after 5 minutes, keeping only the last 3 assistant turns intact. Large results are soft-trimmed to head+tail snippets.
+- **`session.reset.mode: "idle"`** — auto-resets the session after 60 minutes of inactivity, preventing unbounded conversation growth
+
+Useful runtime commands: `/status` (check context usage), `/compact` (force compaction), `/usage tokens` (token stats).
+
+**Deploy behavior:** Normal deploys (`make deploy`) only force `model.primary` to match available credentials — agent-managed settings like compaction mode, context budget, and session reset are left untouched. To overwrite all agent settings with the repo defaults, use `make deploy-force`. State-repo restores (fresh volumes) always apply the full patch to fix stale config.
 
 ## Telegram Access Control
 
@@ -163,7 +180,7 @@ Fresh deployments are seeded with 4 default cron jobs. These run inside the Open
 
 **Config:** `config/cron/jobs.json` — uses OpenClaw's native format (`{"version":1,"jobs":[...]}`). Each job has a pre-generated UUID that the gateway preserves.
 
-**Model override:** Jobs default to `openrouter/anthropic/claude-sonnet-4.5`. Set `CRON_MODEL` as a Fly secret to use a different model (e.g. `CRON_MODEL=openrouter/anthropic/claude-opus-4.5`). The entrypoint substitutes this at seed time via `jq`.
+**Model override:** Jobs default to `anthropic/claude-sonnet-4-5`. Set `CRON_MODEL` as a Fly secret to use a different model (e.g. `CRON_MODEL=anthropic/claude-opus-4-6`). If only OpenRouter credentials are present, the entrypoint defaults cron to `openrouter/openai/gpt-5.2-codex` unless `CRON_MODEL` is explicitly set. The entrypoint substitutes this at seed time via `jq`.
 
 **Seeding behavior:**
 
@@ -204,7 +221,7 @@ Uses [@steipete/summarize](https://github.com/steipete/summarize) to extract and
 
 **Skill:** `config/workspace/skills/summarize/SKILL.md` — loaded by the gateway when `summarize` binary is present (`requires.bins`)
 
-**Environment:** Uses `OPENROUTER_API_KEY` (already set on the VM) for model access. No additional secrets needed.
+**Environment:** Uses whichever provider is configured (Anthropic subscription or OpenRouter). No additional secrets needed.
 
 ## Key Commands
 

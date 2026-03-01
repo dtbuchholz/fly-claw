@@ -15,6 +15,7 @@ ln -sfn /data/.codex /home/agent/.codex
 cat > /data/.env.secrets <<EOF
 export OPENROUTER_API_KEY="${OPENROUTER_API_KEY:-}"
 export ANTHROPIC_API_KEY="${ANTHROPIC_API_KEY:-}"
+export CLAUDE_CODE_OAUTH_TOKEN="${CLAUDE_CODE_OAUTH_TOKEN:-}"
 export OPENAI_API_KEY="${OPENAI_API_KEY:-}"
 export TELEGRAM_BOT_TOKEN="${TELEGRAM_BOT_TOKEN:-}"
 export OPENCLAW_GATEWAY_TOKEN="${OPENCLAW_GATEWAY_TOKEN:-}"
@@ -34,7 +35,7 @@ while IFS='=' read -r key _; do
         PATH|HOME|HOSTNAME|SHELL|USER|PWD|OLDPWD|SHLVL|TERM|LANG|LC_*|_) continue ;;
         DEBIAN_FRONTEND|PUPPETEER_*|CHROMIUM_*|NODE_OPTIONS) continue ;;
         FLY_*|PRIMARY_REGION|LOG_LEVEL) continue ;;
-        TAILSCALE_AUTHKEY|TELEGRAM_ALLOWED_IDS|TELEGRAM_GROUP_IDS|STATE_REPO|STATE_SYNC_INTERVAL|CRON_MODEL|CLAUDE_CONFIG_REPO|CODEX_CONFIG_REPO) continue ;;
+        TAILSCALE_AUTHKEY|TELEGRAM_ALLOWED_IDS|TELEGRAM_GROUP_IDS|STATE_REPO|STATE_SYNC_INTERVAL|CRON_MODEL|CLAUDE_CONFIG_REPO|CODEX_CONFIG_REPO|FORCE_AGENT_CONFIG) continue ;;
     esac
     _extra_secrets+="$(printf 'export %s="%s"\n' "$key" "${!key}")"$'\n'
 done < <(env)
@@ -77,6 +78,46 @@ jq '
     .acp.dispatch.enabled = true
 ' /data/.openclaw/openclaw.json > /data/.openclaw/openclaw.json.tmp \
     && mv /data/.openclaw/openclaw.json.tmp /data/.openclaw/openclaw.json
+
+# Select default models based on available credentials.
+DEFAULT_PRIMARY_MODEL="anthropic/claude-opus-4-6"
+DEFAULT_CRON_MODEL="anthropic/claude-sonnet-4-5"
+if [ -z "${CLAUDE_CODE_OAUTH_TOKEN:-}" ] && [ -z "${ANTHROPIC_API_KEY:-}" ] && [ -n "${OPENROUTER_API_KEY:-}" ]; then
+    DEFAULT_PRIMARY_MODEL="openrouter/openai/gpt-5.2-codex"
+    DEFAULT_CRON_MODEL="openrouter/openai/gpt-5.2-codex"
+    echo "No Anthropic credentials found; defaulting primary/cron model to $DEFAULT_PRIMARY_MODEL"
+fi
+
+# Always: set primary model to match available credentials.
+jq --arg model "$DEFAULT_PRIMARY_MODEL" '.agents.defaults.model.primary = $model' \
+    /data/.openclaw/openclaw.json > /data/.openclaw/openclaw.json.tmp \
+    && mv /data/.openclaw/openclaw.json.tmp /data/.openclaw/openclaw.json
+
+# Patch agent-level settings (model aliases, context budget, compaction, session reset).
+# Only runs on explicit opt-in (FORCE_AGENT_CONFIG=1) or after state-repo restore,
+# so agent customizations made on the VM aren't overwritten on normal deploys.
+_patch_agent_settings() {
+    local target="$1"
+    echo "Applying agent config patch..."
+    jq --arg model "$DEFAULT_PRIMARY_MODEL" '
+        .agents.defaults.model.primary = $model |
+        .agents.defaults.models = {
+            "anthropic/claude-sonnet-4-5": { "alias": "Sonnet" },
+            "anthropic/claude-opus-4-6": { "alias": "Opus" },
+            "anthropic/claude-haiku-4-5": { "alias": "Haiku" },
+            "openrouter/openai/gpt-5.2-codex": { "alias": "Codex" }
+        } |
+        .agents.defaults.contextTokens = 200000 |
+        .agents.defaults.compaction.mode = "default" |
+        .agents.defaults.compaction.reserveTokensFloor = 30000 |
+        .agents.defaults.compaction.memoryFlush.enabled = true |
+        .agents.defaults.compaction.memoryFlush.softThresholdTokens = 4000 |
+        .session.reset = { "mode": "idle", "idleMinutes": 60 }
+    ' "$target" > "${target}.tmp" && mv "${target}.tmp" "$target"
+}
+if [ "${FORCE_AGENT_CONFIG:-}" = "1" ]; then
+    _patch_agent_settings /data/.openclaw/openclaw.json
+fi
 
 # --- 5. Inject Telegram allowlist + group access ---
 if [ -n "${TELEGRAM_ALLOWED_IDS:-}" ]; then
@@ -127,7 +168,7 @@ if [ ! -f /data/.openclaw/cron/jobs.json ]; then
     echo "Seeding default cron jobs..."
     mkdir -p /data/.openclaw/cron
     cp /opt/openclaw/cron/jobs.json /data/.openclaw/cron/jobs.json
-    CRON_MODEL="${CRON_MODEL:-openrouter/anthropic/claude-sonnet-4.5}"
+    CRON_MODEL="${CRON_MODEL:-$DEFAULT_CRON_MODEL}"
     jq --arg model "$CRON_MODEL" '.jobs |= map(.payload.model = $model)' \
         /data/.openclaw/cron/jobs.json > /tmp/cron.tmp && mv /tmp/cron.tmp /data/.openclaw/cron/jobs.json
 fi
@@ -198,11 +239,13 @@ ln -sfn /data/.gnupg /home/agent/.gnupg
 # If STATE_REPO is set and no MEMORY.md exists, this is likely a fresh volume.
 # Clone the state repo to /data/state-repo (persistent, reused by sync loop)
 # and restore workspace + config to recover from volume loss.
+_state_restored=0
 if [ -n "${STATE_REPO:-}" ] && [ ! -f /data/.openclaw/workspace/MEMORY.md ]; then
     echo "Fresh volume detected + STATE_REPO set — restoring state..."
     # Ensure GitHub host key is trusted for clone
     su - agent -c 'ssh-keyscan github.com >> ~/.ssh/known_hosts 2>/dev/null' || true
     if su - agent -c "git clone '${STATE_REPO}' /data/state-repo" 2>&1; then
+        _state_restored=1
         # Restore workspace
         if [ -d /data/state-repo/workspace ]; then
             cp -r /data/state-repo/workspace/* /data/.openclaw/workspace/ 2>/dev/null || true
@@ -228,6 +271,15 @@ if [ -n "${STATE_REPO:-}" ] && [ ! -f /data/.openclaw/workspace/MEMORY.md ]; the
     else
         echo "! State repo clone failed — continuing with defaults"
     fi
+fi
+
+# Re-apply agent settings after state-repo restore (restored state may have stale config).
+# Also re-apply model.primary since restore overwrites it.
+if [ "$_state_restored" -eq 1 ]; then
+    jq --arg model "$DEFAULT_PRIMARY_MODEL" '.agents.defaults.model.primary = $model' \
+        /data/.openclaw/openclaw.json > /data/.openclaw/openclaw.json.tmp \
+        && mv /data/.openclaw/openclaw.json.tmp /data/.openclaw/openclaw.json
+    _patch_agent_settings /data/.openclaw/openclaw.json
 fi
 
 # --- 9. Fix permissions ---
@@ -278,13 +330,30 @@ su - agent -c 'source /data/.env.secrets && openclaw hooks enable boot-md' 2>&1 
 
 # --- 12. Onboard API credentials ---
 echo "Registering API credentials..."
+# Primary: Anthropic subscription (setup-token) > Anthropic API key
+anthropic_registered=0
+if [ -n "${CLAUDE_CODE_OAUTH_TOKEN:-}" ]; then
+    # shellcheck disable=SC2016 # $CLAUDE_CODE_OAUTH_TOKEN expands inside su subshell via sourced .env.secrets
+    if su - agent -c 'source /data/.env.secrets && openclaw onboard --auth-choice setupToken --token-provider anthropic --token "$CLAUDE_CODE_OAUTH_TOKEN"' \
+        2>&1; then
+        anthropic_registered=1
+    else
+        echo "Warning: setup-token auth failed; trying Anthropic API key if available."
+    fi
+fi
+if [ "$anthropic_registered" -eq 0 ] && [ -n "${ANTHROPIC_API_KEY:-}" ]; then
+    # shellcheck disable=SC2016 # $ANTHROPIC_API_KEY expands inside su subshell via sourced .env.secrets
+    if su - agent -c 'source /data/.env.secrets && openclaw onboard --auth-choice apiKey --token-provider anthropic --token "$ANTHROPIC_API_KEY"' \
+        2>&1; then
+        anthropic_registered=1
+    else
+        echo "Warning: Anthropic API key onboarding failed."
+    fi
+fi
+# Secondary: OpenRouter (always register if present, for non-Anthropic models)
 if [ -n "${OPENROUTER_API_KEY:-}" ]; then
     # shellcheck disable=SC2016 # $OPENROUTER_API_KEY expands inside su subshell via sourced .env.secrets
     su - agent -c 'source /data/.env.secrets && openclaw onboard --auth-choice apiKey --token-provider openrouter --token "$OPENROUTER_API_KEY"' \
-        2>&1 || true
-elif [ -n "${ANTHROPIC_API_KEY:-}" ]; then
-    # shellcheck disable=SC2016 # $ANTHROPIC_API_KEY expands inside su subshell via sourced .env.secrets
-    su - agent -c 'source /data/.env.secrets && openclaw onboard --auth-choice apiKey --token-provider anthropic --token "$ANTHROPIC_API_KEY"' \
         2>&1 || true
 fi
 

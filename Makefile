@@ -1,5 +1,5 @@
 .PHONY: build up down status logs shell reset restart onboard network-setup help \
-       fly-init deploy fly-logs fly-status fly-console fly-auth \
+       fly-init deploy deploy-force fly-logs fly-status fly-console fly-auth \
        format format-check lint lint-shell lint-docker setup
 
 SANDBOX_NAME ?= clawd
@@ -36,6 +36,7 @@ help:
 	@echo "Remote (Fly.io):"
 	@echo "  make fly-init APP=<name>  Generate fly.toml from template"
 	@echo "  make deploy               Deploy to Fly.io"
+	@echo "  make deploy-force         Deploy + overwrite agent config (models, context, compaction)"
 	@echo "  make fly-logs             Tail remote logs"
 	@echo "  make fly-status           Check remote VM status"
 	@echo "  make fly-console          SSH into remote VM"
@@ -130,6 +131,11 @@ fly-init:
 
 deploy:
 	@./remote/deploy.sh
+
+deploy-force:
+	fly secrets set FORCE_AGENT_CONFIG=1 -a $(FLY_APP) --stage
+	@./remote/deploy.sh
+	fly secrets unset FORCE_AGENT_CONFIG -a $(FLY_APP)
 
 FLY_APP = $(shell test -f fly.toml && grep '^app' fly.toml | head -1 | sed 's/app *= *"\(.*\)"/\1/')
 

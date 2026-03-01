@@ -61,18 +61,21 @@
   "agents": {
     "defaults": {
       "model": {
-        "primary": "openrouter/anthropic/claude-opus-4.6"
+        "primary": "anthropic/claude-opus-4-6"
       },
       "models": {
-        "openrouter/anthropic/claude-sonnet-4.5": { "alias": "Sonnet" },
-        "openrouter/anthropic/claude-opus-4.6": { "alias": "Opus" },
-        "openrouter/anthropic/claude-haiku-4.5": { "alias": "Haiku" },
+        "anthropic/claude-sonnet-4-5": { "alias": "Sonnet" },
+        "anthropic/claude-opus-4-6": { "alias": "Opus" },
+        "anthropic/claude-haiku-4-5": { "alias": "Haiku" },
         "openrouter/openai/gpt-5.2-codex": { "alias": "Codex" }
       },
       "sandbox": {
         "mode": "off"
       },
+      "contextTokens": 200000,
       "compaction": {
+        "mode": "default",
+        "reserveTokensFloor": 30000,
         "memoryFlush": {
           "enabled": true,
           "softThresholdTokens": 4000
@@ -99,6 +102,10 @@
     }
   },
   "session": {
+    "reset": {
+      "mode": "idle",
+      "idleMinutes": 60
+    },
     "maintenance": {
       "mode": "enforce",
       "pruneAfter": "30d",

@@ -50,9 +50,9 @@ cat file.txt | summarize - --length short
 
 ## Models
 
-Uses OpenRouter by default (OPENROUTER_API_KEY is available). Examples:
+Uses whichever provider is configured. Examples:
 
-- `--model openrouter/anthropic/claude-sonnet-4.5` — good balance
+- `--model anthropic/claude-sonnet-4-5` — good balance
 - `--model openrouter/google/gemini-3-flash-preview` — fast + cheap
 - Default auto mode selects based on content type
 

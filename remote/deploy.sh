@@ -58,8 +58,8 @@ if [ -n "$SECRETS_JSON" ]; then
     has_secret "OPENCLAW_GATEWAY_TOKEN" || MISSING+=("OPENCLAW_GATEWAY_TOKEN")
     has_secret "TELEGRAM_BOT_TOKEN"     || MISSING+=("TELEGRAM_BOT_TOKEN")
 
-    if ! has_secret "OPENROUTER_API_KEY" && ! has_secret "ANTHROPIC_API_KEY"; then
-        MISSING+=("OPENROUTER_API_KEY or ANTHROPIC_API_KEY")
+    if ! has_secret "CLAUDE_CODE_OAUTH_TOKEN" && ! has_secret "ANTHROPIC_API_KEY" && ! has_secret "OPENROUTER_API_KEY"; then
+        MISSING+=("CLAUDE_CODE_OAUTH_TOKEN, ANTHROPIC_API_KEY, or OPENROUTER_API_KEY")
     fi
 
     if [ ${#MISSING[@]} -gt 0 ]; then

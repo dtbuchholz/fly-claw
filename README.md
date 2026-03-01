@@ -6,8 +6,9 @@ Personal AI assistant powered by [OpenClaw](https://openclaw.ai). Runs locally i
 
 ## Prerequisites
 
-- [OpenRouter API key](https://openrouter.ai/) (recommended) or
-  [Anthropic API key](https://console.anthropic.com/)
+- Anthropic subscription token (recommended — run `claude setup-token`),
+  [Anthropic API key](https://console.anthropic.com/), or
+  [OpenRouter API key](https://openrouter.ai/)
 - [Telegram bot token](https://t.me/BotFather) (create via `/newbot`) — must be a **dedicated**
   token not used by any other running bot
 
@@ -21,7 +22,7 @@ Sandbox support)
 ```bash
 # 1. Configure secrets
 cp .env.example .env
-# Edit .env — set OPENROUTER_API_KEY (or ANTHROPIC_API_KEY) and TELEGRAM_BOT_TOKEN
+# Edit .env — set CLAUDE_CODE_OAUTH_TOKEN (or ANTHROPIC_API_KEY / OPENROUTER_API_KEY) and TELEGRAM_BOT_TOKEN
 # Set TELEGRAM_ALLOWED_IDS to your Telegram user ID (find it via @userinfobot)
 
 # 2. Build template + create sandbox + start gateway
@@ -39,11 +40,13 @@ make fly-init APP=my-clawd
 # 2. Create the app + set secrets
 fly apps create my-clawd
 fly secrets set \
-    OPENROUTER_API_KEY='sk-or-...' \
+    CLAUDE_CODE_OAUTH_TOKEN='sk-ant-oat-...' \
     TELEGRAM_BOT_TOKEN='123456:ABC-DEF...' \
     OPENCLAW_GATEWAY_TOKEN="$(openssl rand -hex 16)" \
     TELEGRAM_ALLOWED_IDS='12345678' \
     -a my-clawd
+# Optional: add OpenRouter for non-Anthropic models (GPT, Gemini, etc.)
+# fly secrets set OPENROUTER_API_KEY='sk-or-...' -a my-clawd
 
 # 3. Deploy
 make deploy
@@ -142,12 +145,12 @@ agent-state/
 
 ### Model
 
-Set in `config/openclaw.json` at `agents.defaults.model.primary`. For OpenRouter, prefix with
-`openrouter/` (e.g. `openrouter/anthropic/claude-sonnet-4.5`). For direct Anthropic, use bare
-model IDs (e.g. `anthropic/claude-sonnet-4-20250514`). Run `make reset` (local) or `make deploy`
-(remote) to apply.
+Set in `config/openclaw.json` at `agents.defaults.model.primary`. Anthropic models use the
+`anthropic/` prefix (e.g. `anthropic/claude-opus-4-6`). Non-Anthropic models routed through
+OpenRouter use the `openrouter/` prefix (e.g. `openrouter/openai/gpt-5.2-codex`). Run `make reset`
+(local) or `make deploy` (remote) to apply.
 
-List available models: `make shell` then `openclaw models list --all --provider openrouter`.
+List available models: `make shell` then `openclaw models list --all`.
 
 ### TTS
 
@@ -208,6 +211,7 @@ allowed groups.
 | **Remote (Fly.io)**        |                                        |
 | `make fly-init APP=<name>` | Generate `fly.toml` from template      |
 | `make deploy`              | Deploy to Fly.io                       |
+| `make deploy-force`        | Deploy + overwrite agent config        |
 | `make fly-logs`            | Tail remote logs                       |
 | `make fly-status`          | Check remote VM status                 |
 | `make fly-console`         | SSH into remote VM                     |
