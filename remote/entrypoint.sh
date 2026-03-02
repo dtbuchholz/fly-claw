@@ -73,6 +73,7 @@ jq '
     .browser.profiles.openclaw.color = "#FF4500" |
     .plugins.entries.acpx.enabled = true |
     .plugins.entries.acpx.config.permissionMode = "approve-all" |
+    .tools.sessions.visibility = "agent" |
     .acp.enabled = true |
     .acp.backend = "acpx" |
     .acp.dispatch.enabled = true
@@ -169,8 +170,10 @@ if [ ! -f /data/.openclaw/cron/jobs.json ]; then
     mkdir -p /data/.openclaw/cron
     cp /opt/openclaw/cron/jobs.json /data/.openclaw/cron/jobs.json
     CRON_MODEL="${CRON_MODEL:-$DEFAULT_CRON_MODEL}"
-    jq --arg model "$CRON_MODEL" '.jobs |= map(.payload.model = $model)' \
-        /data/.openclaw/cron/jobs.json > /tmp/cron.tmp && mv /tmp/cron.tmp /data/.openclaw/cron/jobs.json
+    # Override model for all jobs except those intentionally using Haiku (e.g. working-context-snapshot)
+    jq --arg model "$CRON_MODEL" '
+        .jobs |= map(if (.payload.model | test("haiku"; "i")) then . else .payload.model = $model end)
+    ' /data/.openclaw/cron/jobs.json > /tmp/cron.tmp && mv /tmp/cron.tmp /data/.openclaw/cron/jobs.json
 fi
 
 # --- 6c. Seed Claude Code config + OpenClaw workspace skills ---
