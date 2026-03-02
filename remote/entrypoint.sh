@@ -268,12 +268,14 @@ if [ -n "${STATE_REPO:-}" ] && [ ! -f /data/.openclaw/workspace/MEMORY.md ]; the
     # Clone into a temp dir, then move contents into /data/.openclaw
     # (can't clone directly into non-empty dir)
     if su - agent -c "git clone '${STATE_REPO}' /tmp/state-restore" 2>&1; then
-        _state_restored=1
-        # Move git history and tracked files into /data/.openclaw
-        mv /tmp/state-restore/.git /data/.openclaw/.git
-        # Checkout restores tracked files without clobbering entrypoint-seeded ones
-        cd /data/.openclaw && git checkout -- . 2>/dev/null || true
-        echo "✓ State restored from repo (git history preserved)"
+        # Move git history into /data/.openclaw, then hard-reset to restore tracked files
+        if mv /tmp/state-restore/.git /data/.openclaw/.git; then
+            _state_restored=1
+            (cd /data/.openclaw && git reset --hard HEAD 2>/dev/null) || true
+            echo "✓ State restored from repo (git history preserved)"
+        else
+            echo "! Failed to move .git into /data/.openclaw — continuing with defaults"
+        fi
     else
         echo "! State repo clone failed — continuing with defaults"
     fi

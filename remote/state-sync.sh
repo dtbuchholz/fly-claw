@@ -18,6 +18,15 @@ cd "$OPENCLAW_DIR"
 if [ ! -d .git ]; then
     git init
     git remote add origin "$STATE_REPO"
+    # Seed .gitignore to exclude sensitive directories
+    cat > .gitignore <<'GITIGNORE'
+identity/
+credentials/
+browser/
+logs/
+*.log
+*.tmp
+GITIGNORE
 fi
 
 # Ensure remote URL is current (may change between deploys)
@@ -28,9 +37,11 @@ for dir in workspace/*/; do
     [ -d "$dir" ] || continue
     dirname=$(basename "$dir")
     if [ -d "${dir}.git" ] && ! grep -qF "workspace/$dirname/" .gitignore 2>/dev/null; then
-        echo "" >> .gitignore
-        echo "# Auto-added by state-sync $(date -u +%Y-%m-%d)" >> .gitignore
-        echo "workspace/$dirname/" >> .gitignore
+        {
+            echo ""
+            echo "# Auto-added by state-sync $(date -u +%Y-%m-%d)"
+            echo "workspace/$dirname/"
+        } >> .gitignore
         echo "Auto-ignored nested repo: workspace/$dirname/"
     fi
 done
@@ -46,7 +57,9 @@ fi
 CHANGED=$(git diff --cached --stat | tail -1)
 git commit -m "Auto-sync: $CHANGED" --no-verify
 
-if git push origin main 2>&1; then
+# Detect current branch (may differ from "main" depending on repo setup)
+BRANCH=$(git symbolic-ref --short HEAD 2>/dev/null || echo "main")
+if git push origin "$BRANCH" 2>&1; then
     echo "STATE_SYNC_OK: pushed"
 else
     echo "STATE_SYNC_ERROR: push failed"
