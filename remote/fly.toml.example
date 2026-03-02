@@ -6,7 +6,9 @@ primary_region = "{{REGION}}"
 
 [env]
   FLY_APP_NAME = "{{APP_NAME}}"
+  NODE_ENV = "production"
   NODE_OPTIONS = "--max-old-space-size=4096"
+  OPENCLAW_STATE_DIR = "/data/.openclaw"
 
 [mounts]
   source = "clawd_data"

@@ -60,6 +60,7 @@
   },
   "agents": {
     "defaults": {
+      "maxConcurrent": 4,
       "model": {
         "primary": "anthropic/claude-opus-4-6"
       },

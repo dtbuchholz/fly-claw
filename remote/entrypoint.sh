@@ -70,6 +70,7 @@ jq '
     .plugins.entries.telegram.enabled = true |
     .plugins.entries.slack.enabled = true |
     .agents.defaults.sandbox.mode = "off" |
+    .agents.defaults.maxConcurrent = 4 |
     .browser.enabled = true |
     .browser.headless = true |
     .browser.noSandbox = true |
@@ -111,6 +112,7 @@ _patch_agent_settings() {
     echo "Applying agent config patch..."
     jq --arg model "$DEFAULT_PRIMARY_MODEL" '
         .agents.defaults.model.primary = $model |
+        .agents.defaults.maxConcurrent = 4 |
         .agents.defaults.models = {
             "anthropic/claude-sonnet-4-5": { "alias": "Sonnet" },
             "anthropic/claude-opus-4-6": { "alias": "Opus" },
@@ -423,5 +425,8 @@ echo "Scheduling QMD embedding warm-up..."
 # OPENAI_API_KEY is kept in the gateway env for TTS/STT and OpenAI-dependent
 # services. The Codex wrapper (/usr/local/bin/codex) unsets it per-invocation
 # so Codex uses OAuth subscription auth instead.
+# Clean stale gateway lock files (may persist if the machine was killed mid-run)
+rm -f /data/.openclaw/gateway.*.lock
+
 echo "=== Clawd Ready ==="
 exec su - agent -c 'source /data/.env.secrets && openclaw gateway run --port 18789 2>&1 | tee /data/logs/gateway.log'
