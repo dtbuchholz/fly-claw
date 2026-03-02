@@ -133,9 +133,12 @@ deploy:
 	@./remote/deploy.sh
 
 deploy-force:
-	fly secrets set FORCE_AGENT_CONFIG=1 -a $(FLY_APP) --stage
-	@./remote/deploy.sh
-	fly secrets unset FORCE_AGENT_CONFIG -a $(FLY_APP)
+	@set -e; \
+	fly secrets set FORCE_AGENT_CONFIG=1 -a $(FLY_APP) --stage; \
+	status=0; \
+	./remote/deploy.sh || status=$$?; \
+	fly secrets unset FORCE_AGENT_CONFIG -a $(FLY_APP); \
+	exit $$status
 
 FLY_APP = $(shell test -f fly.toml && grep '^app' fly.toml | head -1 | sed 's/app *= *"\(.*\)"/\1/')
 
