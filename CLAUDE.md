@@ -177,7 +177,7 @@ Fresh deployments are seeded with 5 default cron jobs. These run inside the Open
 | `daily-state-sync`         | 15:00 daily    | Runs `state-sync.sh` wrapper for agent-level visibility     |
 | `daily-memory-snapshot`    | 08:00 daily    | Reviews last 24h, writes to memory if notable               |
 | `weekly-memory-rollup`     | Fri 08:30      | Consolidates the week's memory entries                      |
-| `working-context-snapshot` | Every 50 min   | Saves in-flight task context to `memory/working-context.md` |
+| `working-context-snapshot` | Every 30 min   | Saves in-flight task context to `memory/working-context.md` |
 
 **Config:** `config/cron/jobs.json` — uses OpenClaw's native format (`{"version":1,"jobs":[...]}`). Each job has a pre-generated UUID that the gateway preserves.
 
