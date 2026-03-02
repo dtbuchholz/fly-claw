@@ -12,4 +12,4 @@ When spawning ACP sub-agents (Codex, Claude Code, etc.) via `sessions_spawn`, al
 
 > Keep your final output concise. Report only: what you found, what you changed (with commit hashes if applicable), and any unresolved issues. Do not narrate your internal reasoning steps or tool calls.
 
-This ensures announce messages delivered to chat are readable. See issue #16 for upstream improvements.
+This ensures announce messages delivered to chat are readable.
