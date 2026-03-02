@@ -23,6 +23,8 @@ export GH_TOKEN="${GH_TOKEN:-}"
 export BRAVE_API_KEY="${BRAVE_API_KEY:-}"
 export SLACK_APP_TOKEN="${SLACK_APP_TOKEN:-}"
 export SLACK_BOT_TOKEN="${SLACK_BOT_TOKEN:-}"
+export CLAUDE_CONFIG_REPO="${CLAUDE_CONFIG_REPO:-}"
+export CODEX_CONFIG_REPO="${CODEX_CONFIG_REPO:-}"
 EOF
 chmod 600 /data/.env.secrets
 
@@ -35,7 +37,7 @@ while IFS='=' read -r key _; do
         PATH|HOME|HOSTNAME|SHELL|USER|PWD|OLDPWD|SHLVL|TERM|LANG|LC_*|_) continue ;;
         DEBIAN_FRONTEND|PUPPETEER_*|CHROMIUM_*|NODE_OPTIONS) continue ;;
         FLY_*|PRIMARY_REGION|LOG_LEVEL) continue ;;
-        TAILSCALE_AUTHKEY|TELEGRAM_ALLOWED_IDS|TELEGRAM_GROUP_IDS|STATE_REPO|STATE_SYNC_INTERVAL|CRON_MODEL|CLAUDE_CONFIG_REPO|CODEX_CONFIG_REPO|FORCE_AGENT_CONFIG) continue ;;
+        TAILSCALE_AUTHKEY|TELEGRAM_ALLOWED_IDS|TELEGRAM_GROUP_IDS|STATE_REPO|STATE_SYNC_INTERVAL|CRON_MODEL|FORCE_AGENT_CONFIG) continue ;;
     esac
     _extra_secrets+="$(printf 'export %s="%s"\n' "$key" "${!key}")"$'\n'
 done < <(env)
@@ -170,9 +172,10 @@ if [ ! -f /data/.openclaw/cron/jobs.json ]; then
     mkdir -p /data/.openclaw/cron
     cp /opt/openclaw/cron/jobs.json /data/.openclaw/cron/jobs.json
     CRON_MODEL="${CRON_MODEL:-$DEFAULT_CRON_MODEL}"
-    # Override model for all jobs except those intentionally using Haiku (e.g. working-context-snapshot)
-    jq --arg model "$CRON_MODEL" '
-        .jobs |= map(if (.payload.model | test("haiku"; "i")) then . else .payload.model = $model end)
+    # Replace the default Sonnet model with CRON_MODEL; jobs that specify a different model are kept as-is.
+    SEED_MODEL="anthropic/claude-sonnet-4-5"
+    jq --arg model "$CRON_MODEL" --arg seed "$SEED_MODEL" '
+        .jobs |= map(if .payload.model == $seed then .payload.model = $model else . end)
     ' /data/.openclaw/cron/jobs.json > /tmp/cron.tmp && mv /tmp/cron.tmp /data/.openclaw/cron/jobs.json
 fi
 

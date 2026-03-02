@@ -181,7 +181,7 @@ Fresh deployments are seeded with 5 default cron jobs. These run inside the Open
 
 **Config:** `config/cron/jobs.json` — uses OpenClaw's native format (`{"version":1,"jobs":[...]}`). Each job has a pre-generated UUID that the gateway preserves.
 
-**Model override:** Jobs default to `anthropic/claude-sonnet-4-5`. Set `CRON_MODEL` as a Fly secret to use a different model (e.g. `CRON_MODEL=anthropic/claude-opus-4-6`). If only OpenRouter credentials are present, the entrypoint defaults cron to `openrouter/openai/gpt-5.2-codex` unless `CRON_MODEL` is explicitly set. Jobs using Haiku (e.g. `working-context-snapshot`) are excluded from the override. The entrypoint substitutes this at seed time via `jq`.
+**Model override:** Jobs default to `anthropic/claude-sonnet-4-5`. Set `CRON_MODEL` as a Fly secret to use a different model (e.g. `CRON_MODEL=anthropic/claude-opus-4-6`). If only OpenRouter credentials are present, the entrypoint defaults cron to `openrouter/openai/gpt-5.2-codex` unless `CRON_MODEL` is explicitly set. `CRON_MODEL` replaces the default Sonnet model in seeded jobs; jobs that specify a different model (e.g. Haiku) are kept as-is. The entrypoint substitutes this at seed time via `jq`.
 
 **Seeding behavior:**
 
