@@ -4,12 +4,13 @@ set -euo pipefail
 echo "=== Clawd Entrypoint ==="
 
 # --- 1. Create persistent dirs ---
-mkdir -p /data/.openclaw/workspace /data/.openclaw/extensions /data/.claude /data/.codex /data/logs
+mkdir -p /data/.openclaw/workspace /data/.openclaw/extensions /data/.claude /data/.codex /data/.cache /data/logs
 
 # --- 2. Symlink persistent dirs into agent home ---
 ln -sfn /data/.openclaw /home/agent/.openclaw
 ln -sfn /data/.claude /home/agent/.claude
 ln -sfn /data/.codex /home/agent/.codex
+ln -sfn /data/.cache /home/agent/.cache
 
 # --- 3. Write secrets to file (sourced by agent user) ---
 cat > /data/.env.secrets <<EOF
@@ -296,7 +297,7 @@ fi
 chmod 700 /data/.openclaw /data/.claude /data/.codex /data/.ssh /data/.gnupg /data/git
 chmod 600 /data/.openclaw/openclaw.json
 [ -s /data/.ssh/id_ed25519 ] && chmod 600 /data/.ssh/id_ed25519
-chown -R agent:agent /data/.openclaw /data/.claude /data/.codex /data/.ssh /data/git /data/.gnupg /data/logs /data/.env.secrets /home/agent/.bashrc
+chown -R agent:agent /data/.openclaw /data/.claude /data/.codex /data/.cache /data/.ssh /data/git /data/.gnupg /data/logs /data/.env.secrets /home/agent/.bashrc
 # acpx plugin dir must be owned by agent — OpenClaw blocks world-writable extensions
 chown -R agent:agent /usr/lib/node_modules/openclaw/extensions/acpx/ 2>/dev/null || true
 
@@ -405,8 +406,9 @@ if [ -n "${STATE_REPO:-}" ]; then
 fi
 
 # --- 13.7. Pre-warm QMD embeddings (background) ---
-# Downloads GGUF models (~2GB, cached on /data volume) and generates embeddings
-# so the first memory_search isn't slow. Delayed to let the gateway create collections first.
+# Generates embeddings so the first memory_search isn't slow.
+# GGUF models + compiled binaries persist in /data/.cache via the ~/.cache symlink.
+# Delayed to let the gateway create collections first.
 echo "Scheduling QMD embedding warm-up..."
 (
     sleep 30
