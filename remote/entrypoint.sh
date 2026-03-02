@@ -127,6 +127,15 @@ _patch_agent_settings() {
 }
 if [ "${FORCE_AGENT_CONFIG:-}" = "1" ]; then
     _patch_agent_settings /data/.openclaw/openclaw.json
+    # Also patch cron job models when force-applying config
+    if [ -f /data/.openclaw/cron/jobs.json ]; then
+        CRON_MODEL="${CRON_MODEL:-$DEFAULT_CRON_MODEL}"
+        jq --arg model "$CRON_MODEL" '
+            .jobs |= map(
+                if (.payload.model // "" | test("^openrouter/")) then .payload.model = $model else . end
+            )
+        ' /data/.openclaw/cron/jobs.json > /tmp/cron-patch.tmp && mv /tmp/cron-patch.tmp /data/.openclaw/cron/jobs.json
+    fi
 fi
 
 # --- 5. Inject Telegram allowlist + group access ---
@@ -293,6 +302,15 @@ if [ "$_state_restored" -eq 1 ]; then
         /data/.openclaw/openclaw.json > /data/.openclaw/openclaw.json.tmp \
         && mv /data/.openclaw/openclaw.json.tmp /data/.openclaw/openclaw.json
     _patch_agent_settings /data/.openclaw/openclaw.json
+    # Patch cron job models to match current credentials (state-repo may have stale provider prefixes)
+    if [ -f /data/.openclaw/cron/jobs.json ]; then
+        echo "Patching cron job models after state restore..."
+        jq --arg model "$DEFAULT_CRON_MODEL" '
+            .jobs |= map(
+                if (.payload.model // "" | test("^openrouter/")) then .payload.model = $model else . end
+            )
+        ' /data/.openclaw/cron/jobs.json > /tmp/cron-patch.tmp && mv /tmp/cron-patch.tmp /data/.openclaw/cron/jobs.json
+    fi
 fi
 
 # --- 9. Fix permissions ---
