@@ -81,6 +81,8 @@ jq '
     .plugins.entries.acpx.enabled = true |
     .plugins.entries.acpx.config.permissionMode = "approve-all" |
     .tools.sessions.visibility = "agent" |
+    .tools.media.audio.enabled = true |
+    .tools.media.audio.models = [{"provider": "openai", "model": "gpt-4o-mini-transcribe", "capabilities": ["audio"]}] |
     .acp.enabled = true |
     .acp.backend = "acpx" |
     .acp.dispatch.enabled = true
