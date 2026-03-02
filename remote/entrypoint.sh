@@ -415,8 +415,8 @@ echo "Scheduling QMD embedding warm-up..."
 ) &
 
 # --- 14. Start gateway (foreground, PID 1) ---
-# Unset OPENAI_API_KEY so child processes (codex-acp adapter) use OAuth
-# instead of the API key. The gateway doesn't need it (uses OpenRouter via onboard).
-# OPENAI_API_KEY remains in .env.secrets for interactive SSH sessions.
+# OPENAI_API_KEY is kept in the gateway env for TTS/STT and OpenAI-dependent
+# services. The Codex wrapper (/usr/local/bin/codex) unsets it per-invocation
+# so Codex uses OAuth subscription auth instead.
 echo "=== Clawd Ready ==="
-exec su - agent -c 'source /data/.env.secrets && unset OPENAI_API_KEY && openclaw gateway run --port 18789 2>&1 | tee /data/logs/gateway.log'
+exec su - agent -c 'source /data/.env.secrets && openclaw gateway run --port 18789 2>&1 | tee /data/logs/gateway.log'
