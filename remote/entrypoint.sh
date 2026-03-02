@@ -42,7 +42,7 @@ while IFS='=' read -r key _; do
         PATH|HOME|HOSTNAME|SHELL|USER|PWD|OLDPWD|SHLVL|TERM|LANG|LC_*|_) continue ;;
         DEBIAN_FRONTEND|PUPPETEER_*|CHROMIUM_*|NODE_OPTIONS) continue ;;
         FLY_*|PRIMARY_REGION|LOG_LEVEL) continue ;;
-        TAILSCALE_AUTHKEY|TELEGRAM_ALLOWED_IDS|TELEGRAM_GROUP_IDS|STATE_REPO|STATE_SYNC_INTERVAL|CRON_MODEL|FORCE_AGENT_CONFIG) continue ;;
+        TAILSCALE_AUTHKEY|TELEGRAM_ALLOWED_IDS|TELEGRAM_GROUP_IDS|CRON_MODEL|FORCE_AGENT_CONFIG) continue ;;
     esac
     _extra_secrets+="$(printf 'export %s="%s"\n' "$key" "${!key}")"$'\n'
 done < <(env)
@@ -259,40 +259,25 @@ ln -sfn /data/.gnupg /home/agent/.gnupg
 
 # --- 8. Restore from state repo (fresh volume only) ---
 # If STATE_REPO is set and no MEMORY.md exists, this is likely a fresh volume.
-# Clone the state repo to /data/state-repo (persistent, reused by sync loop)
-# and restore workspace + config to recover from volume loss.
+# Clone the state repo directly into /data/.openclaw — the same dir used for
+# ongoing sync (no separate /data/state-repo clone).
 _state_restored=0
 if [ -n "${STATE_REPO:-}" ] && [ ! -f /data/.openclaw/workspace/MEMORY.md ]; then
     echo "Fresh volume detected + STATE_REPO set — restoring state..."
-    # Ensure GitHub host key is trusted for clone
     su - agent -c 'ssh-keyscan github.com >> ~/.ssh/known_hosts 2>/dev/null' || true
-    if su - agent -c "git clone '${STATE_REPO}' /data/state-repo" 2>&1; then
+    # Clone into a temp dir, then move contents into /data/.openclaw
+    # (can't clone directly into non-empty dir)
+    if su - agent -c "git clone '${STATE_REPO}' /tmp/state-restore" 2>&1; then
         _state_restored=1
-        # Restore workspace
-        if [ -d /data/state-repo/workspace ]; then
-            cp -r /data/state-repo/workspace/* /data/.openclaw/workspace/ 2>/dev/null || true
-            echo "✓ Workspace restored from state repo"
-        fi
-        # Restore config (root level, matching repo layout)
-        if [ -f /data/state-repo/openclaw.json ]; then
-            cp /data/state-repo/openclaw.json /data/.openclaw/openclaw.json
-            echo "✓ Config restored from state repo"
-        fi
-        # Restore cron jobs
-        if [ -d /data/state-repo/cron ]; then
-            mkdir -p /data/.openclaw/cron
-            cp -r /data/state-repo/cron/* /data/.openclaw/cron/ 2>/dev/null || true
-            echo "✓ Cron jobs restored from state repo"
-        fi
-        # Restore agent sessions
-        if [ -d /data/state-repo/agents ]; then
-            mkdir -p /data/.openclaw/agents
-            cp -r /data/state-repo/agents/* /data/.openclaw/agents/ 2>/dev/null || true
-            echo "✓ Agent data restored from state repo"
-        fi
+        # Move git history and tracked files into /data/.openclaw
+        mv /tmp/state-restore/.git /data/.openclaw/.git
+        # Checkout restores tracked files without clobbering entrypoint-seeded ones
+        cd /data/.openclaw && git checkout -- . 2>/dev/null || true
+        echo "✓ State restored from repo (git history preserved)"
     else
         echo "! State repo clone failed — continuing with defaults"
     fi
+    rm -rf /tmp/state-restore
 fi
 
 # Re-apply agent settings after state-repo restore (restored state may have stale config).
@@ -408,14 +393,10 @@ for _retry in $(seq 1 10); do
 done
 
 # --- 13.5. State sync loop (background, optional) ---
+# Commits and pushes /data/.openclaw directly (no separate clone).
+# STATE_REPO and STATE_SYNC_INTERVAL are available via .env.secrets.
 if [ -n "${STATE_REPO:-}" ]; then
     SYNC_INTERVAL="${STATE_SYNC_INTERVAL:-1800}"
-    # Ensure persistent clone exists (step 8 only runs on fresh volumes)
-    if [ ! -d /data/state-repo/.git ]; then
-        su - agent -c 'ssh-keyscan github.com >> ~/.ssh/known_hosts 2>/dev/null' || true
-        su - agent -c "git clone '${STATE_REPO}' /data/state-repo" 2>&1 || true
-    fi
-    chown -R agent:agent /data/state-repo 2>/dev/null || true
     echo "Starting state sync loop (interval: ${SYNC_INTERVAL}s)..."
     (
         while sleep "$SYNC_INTERVAL"; do
