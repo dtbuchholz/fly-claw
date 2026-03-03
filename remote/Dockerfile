@@ -64,6 +64,10 @@ RUN curl -fsSL https://bun.sh/install | bash \
 
 # OpenClaw + QMD memory backend
 # chmod: node-llama-cpp needs write access for CPU backend build at runtime (runs as agent user)
+# CACHEBUST forces Docker to re-run npm install when a new version is desired.
+# Set via: flyctl deploy --build-arg CACHEBUST=$(date +%s)
+# Or in CI: --build-arg CACHEBUST=${{ github.sha }}
+ARG CACHEBUST=1
 RUN npm install -g openclaw@latest @tobilu/qmd@latest \
     && chmod -R a+w /usr/lib/node_modules/@tobilu/qmd/node_modules/node-llama-cpp/
 
