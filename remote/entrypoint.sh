@@ -344,6 +344,12 @@ echo "Enabling hooks..."
 su - agent -c 'source /data/.env.secrets && openclaw hooks enable session-memory' 2>&1 || true
 su - agent -c 'source /data/.env.secrets && openclaw hooks enable boot-md' 2>&1 || true
 
+# --- 11.5. Validate config ---
+echo "Validating OpenClaw config..."
+if command -v openclaw >/dev/null 2>&1; then
+    openclaw config validate 2>&1 || echo "! Config validation warning (non-fatal on older versions)"
+fi
+
 # --- 12. Onboard API credentials ---
 echo "Registering API credentials..."
 # Primary: Anthropic subscription (setup-token) > Anthropic API key
