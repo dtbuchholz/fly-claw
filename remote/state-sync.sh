@@ -46,6 +46,12 @@ for dir in workspace/*/; do
     fi
 done
 
+# Extract conversation digests (if script exists) before staging
+EXTRACT_SCRIPT="$OPENCLAW_DIR/workspace/scripts/extract-conversations.py"
+if [ -f "$EXTRACT_SCRIPT" ] && command -v python3 >/dev/null 2>&1; then
+    python3 "$EXTRACT_SCRIPT" "$OPENCLAW_DIR" 2>/dev/null || true
+fi
+
 # Stage and commit
 git add -A
 
