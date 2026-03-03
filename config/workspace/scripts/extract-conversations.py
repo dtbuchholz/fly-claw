@@ -425,6 +425,34 @@ def extract_openclaw(jsonl_path: Path) -> dict[str, str]:
     return digests
 
 
+def _is_cron_session(jsonl_path: Path) -> bool:
+    """Detect cron sessions by checking the first user message for [cron:...] prefix."""
+    try:
+        for raw in jsonl_path.open(errors="replace"):
+            try:
+                entry = json.loads(raw)
+            except json.JSONDecodeError:
+                continue
+            if entry.get("type") != "message":
+                continue
+            msg = entry.get("message", {})
+            if not msg or msg.get("role") != "user":
+                continue
+            content = msg.get("content", [])
+            text = ""
+            if isinstance(content, str):
+                text = content
+            elif isinstance(content, list):
+                for block in content:
+                    if isinstance(block, dict) and block.get("type") == "text":
+                        text = block.get("text", "")
+                        break
+            return text.strip().startswith("[cron:")
+    except OSError:
+        pass
+    return False
+
+
 def main():
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -451,11 +479,14 @@ def main():
         out_dir = OUTPUT_DIR / agent_name
 
         for jsonl in sessions_dir.glob("*.jsonl"):
-            # Skip small files (cron runs, heartbeats)
+            # Skip small files (heartbeats, trivial sessions)
             if jsonl.stat().st_size < MIN_SESSION_BYTES:
                 continue
             # Skip reset/deleted archives
             if ".reset." in jsonl.name or ".deleted." in jsonl.name:
+                continue
+            # Skip cron sessions by checking first user message content
+            if _is_cron_session(jsonl):
                 continue
 
             total_sessions += 1
