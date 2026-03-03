@@ -9,6 +9,22 @@ MAX_CONCURRENT=4
 # --- 1. Create persistent dirs ---
 mkdir -p /data/.openclaw/workspace /data/.openclaw/extensions /data/.claude /data/.codex /data/.cache /data/logs
 
+# --- 1.5. Persist node-llama-cpp builds across deploys ---
+# Without this, QMD recompiles llama.cpp on every deploy (~minutes on shared CPUs).
+LLAMA_CPP_DIR="/usr/lib/node_modules/@tobilu/qmd/node_modules/node-llama-cpp"
+PERSIST_BUILDS="/data/.cache/node-llama-cpp-builds"
+mkdir -p "$PERSIST_BUILDS"
+if [ -d "$LLAMA_CPP_DIR" ]; then
+    # If Docker image has a fresh build, seed the persistent cache
+    if [ -d "$LLAMA_CPP_DIR/localBuilds" ] && [ "$(ls -A "$LLAMA_CPP_DIR/localBuilds" 2>/dev/null)" ]; then
+        cp -rn "$LLAMA_CPP_DIR/localBuilds/"* "$PERSIST_BUILDS/" 2>/dev/null || true
+    fi
+    # Symlink localBuilds to persistent volume
+    rm -rf "$LLAMA_CPP_DIR/localBuilds"
+    ln -sfn "$PERSIST_BUILDS" "$LLAMA_CPP_DIR/localBuilds"
+    echo "✓ node-llama-cpp builds linked to persistent volume"
+fi
+
 # --- 2. Symlink persistent dirs into agent home ---
 ln -sfn /data/.openclaw /home/agent/.openclaw
 ln -sfn /data/.claude /home/agent/.claude
