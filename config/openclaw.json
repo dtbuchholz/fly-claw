@@ -72,10 +72,18 @@
         "primary": "anthropic/claude-opus-4-6"
       },
       "models": {
-        "anthropic/claude-sonnet-4-5": { "alias": "Sonnet" },
-        "anthropic/claude-opus-4-6": { "alias": "Opus" },
-        "anthropic/claude-haiku-4-5": { "alias": "Haiku" },
-        "openrouter/openai/gpt-5.2-codex": { "alias": "Codex" }
+        "anthropic/claude-sonnet-4-5": {
+          "alias": "Sonnet"
+        },
+        "anthropic/claude-opus-4-6": {
+          "alias": "Opus"
+        },
+        "anthropic/claude-haiku-4-5": {
+          "alias": "Haiku"
+        },
+        "openrouter/openai/gpt-5.2-codex": {
+          "alias": "Codex"
+        }
       },
       "sandbox": {
         "mode": "off"
@@ -103,9 +111,21 @@
           "placeholder": "[Old tool result cleared]"
         },
         "tools": {
-          "allow": ["exec", "read", "web_fetch", "browser", "process"],
-          "deny": ["memory_search", "memory_get"]
+          "allow": [
+            "exec",
+            "read",
+            "web_fetch",
+            "browser",
+            "process"
+          ],
+          "deny": [
+            "memory_search",
+            "memory_get"
+          ]
         }
+      },
+      "heartbeat": {
+        "every": "365d"
       }
     }
   },
@@ -123,10 +143,15 @@
   },
   "acp": {
     "enabled": true,
-    "dispatch": { "enabled": true },
+    "dispatch": {
+      "enabled": true
+    },
     "backend": "acpx",
     "defaultAgent": "codex",
-    "allowedAgents": ["codex", "claude"],
+    "allowedAgents": [
+      "codex",
+      "claude"
+    ],
     "maxConcurrentSessions": 4,
     "stream": {
       "coalesceIdleMs": 300,
@@ -155,7 +180,29 @@
         "maxResults": 6,
         "maxSnippetChars": 2000,
         "timeoutMs": 4000
-      }
+      },
+      "paths": [
+        {
+          "path": "journal",
+          "name": "journal",
+          "pattern": "**/*.md"
+        },
+        {
+          "path": "patterns",
+          "name": "patterns",
+          "pattern": "**/*.md"
+        },
+        {
+          "path": "docs",
+          "name": "docs",
+          "pattern": "**/*.md"
+        },
+        {
+          "path": "conversations",
+          "name": "conversations",
+          "pattern": "**/*.md"
+        }
+      ]
     }
   }
 }
