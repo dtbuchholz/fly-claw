@@ -12,14 +12,21 @@
       "enabled": true,
       "dmPolicy": "allowlist",
       "allowFrom": [],
-      "streaming": "off"
+      "streaming": "partial"
     },
     "slack": {
       "enabled": true,
       "mode": "socket",
       "groupPolicy": "open",
-      "streaming": "off",
+      "streaming": "partial",
       "nativeStreaming": false
+    }
+  },
+  "tools": {
+    "media": {
+      "audio": {
+        "echoTranscript": true
+      }
     }
   },
   "plugins": {
