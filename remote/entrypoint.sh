@@ -3,6 +3,9 @@ set -euo pipefail
 
 echo "=== Clawd Entrypoint ==="
 
+STATE_DIR="${OPENCLAW_STATE_DIR:-/data/.openclaw}"
+MAX_CONCURRENT=4
+
 # --- 1. Create persistent dirs ---
 mkdir -p /data/.openclaw/workspace /data/.openclaw/extensions /data/.claude /data/.codex /data/.cache /data/logs
 
@@ -60,7 +63,7 @@ if [ ! -f /data/.openclaw/openclaw.json ]; then
 fi
 
 # Patch infra-level keys (safe to run every deploy — leaves agent-managed keys untouched)
-jq '
+jq --argjson max_concurrent "$MAX_CONCURRENT" '
     .gateway.port = 18789 |
     .gateway.bind = "loopback" |
     .gateway.mode = "local" |
@@ -70,6 +73,7 @@ jq '
     .plugins.entries.telegram.enabled = true |
     .plugins.entries.slack.enabled = true |
     .agents.defaults.sandbox.mode = "off" |
+    .agents.defaults.maxConcurrent = $max_concurrent |
     .browser.enabled = true |
     .browser.headless = true |
     .browser.noSandbox = true |
@@ -109,8 +113,9 @@ jq --arg model "$DEFAULT_PRIMARY_MODEL" '.agents.defaults.model.primary = $model
 _patch_agent_settings() {
     local target="$1"
     echo "Applying agent config patch..."
-    jq --arg model "$DEFAULT_PRIMARY_MODEL" '
+    jq --arg model "$DEFAULT_PRIMARY_MODEL" --argjson max_concurrent "$MAX_CONCURRENT" '
         .agents.defaults.model.primary = $model |
+        .agents.defaults.maxConcurrent = $max_concurrent |
         .agents.defaults.models = {
             "anthropic/claude-sonnet-4-5": { "alias": "Sonnet" },
             "anthropic/claude-opus-4-6": { "alias": "Opus" },
@@ -423,5 +428,8 @@ echo "Scheduling QMD embedding warm-up..."
 # OPENAI_API_KEY is kept in the gateway env for TTS/STT and OpenAI-dependent
 # services. The Codex wrapper (/usr/local/bin/codex) unsets it per-invocation
 # so Codex uses OAuth subscription auth instead.
+# Clean stale gateway lock files (may persist if the machine was killed mid-run)
+rm -f -- "$STATE_DIR"/gateway.*.lock
+
 echo "=== Clawd Ready ==="
 exec su - agent -c 'source /data/.env.secrets && openclaw gateway run --port 18789 2>&1 | tee /data/logs/gateway.log'

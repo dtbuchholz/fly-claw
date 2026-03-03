@@ -18,7 +18,7 @@ Personal AI assistant (OpenClaw) running in a Docker AI Sandbox (local) or Fly.i
 - `remote/Dockerfile` - Standalone image (debian:bookworm-slim + Node 22 + Chromium + Tailscale + OpenClaw)
 - `remote/entrypoint.sh` - VM init: secrets, config injection, optional Tailscale, state sync, gateway startup
 - `remote/state-sync.sh` - Periodic sync of live state (`/data/.openclaw`) to a remote git repo
-- `remote/fly.toml.example` - Fly.io config template with `{{APP_NAME}}`/`{{REGION}}` placeholders
+- `remote/fly.toml.example` - Fly.io config template with `{{APP_NAME}}`/`{{REGION}}` placeholders; sets `NODE_ENV=production` and `OPENCLAW_STATE_DIR=/data/.openclaw` in `[env]`
 - `remote/fly-init.sh` - Generates `fly.toml` from template
 - `remote/deploy.sh` - Validates secrets, creates app/volume if needed, runs `fly deploy`
 - `remote/vm-setup.sh` - Interactive wizard for git identity, SSH keys, commit signing, GitHub CLI
@@ -55,6 +55,7 @@ If only `OPENROUTER_API_KEY` is set (no Anthropic credentials), startup scripts 
 
 Prevents token explosion in long-running Telegram threads. Configured in `config/openclaw.json` under `agents.defaults`:
 
+- **`maxConcurrent: 4`** — allows up to 4 parallel agent runs (cron, Telegram, ACP); default is 1
 - **`contextTokens: 200000`** — hard budget; the gateway compacts when approaching this limit
 - **`compaction.reserveTokensFloor: 30000`** — keeps 30K tokens free for the next response
 - **`compaction.memoryFlush`** — flushes compacted context to QMD memory before discarding
@@ -63,7 +64,7 @@ Prevents token explosion in long-running Telegram threads. Configured in `config
 
 Useful runtime commands: `/status` (check context usage), `/compact` (force compaction), `/usage tokens` (token stats).
 
-**Deploy behavior:** Normal deploys (`make deploy`) only force `model.primary` to match available credentials — agent-managed settings like compaction mode, context budget, and session reset are left untouched. To overwrite all agent settings with the repo defaults, use `make deploy-force`. State-repo restores (fresh volumes) always apply the full patch to fix stale config.
+**Deploy behavior:** Normal deploys (`make deploy`) only force `model.primary` and `maxConcurrent` to match available credentials and official best practices — agent-managed settings like compaction mode, context budget, and session reset are left untouched. To overwrite all agent settings with the repo defaults, use `make deploy-force`. State-repo restores (fresh volumes) always apply the full patch to fix stale config. Stale gateway lock files (`gateway.*.lock`) are cleaned on every boot to prevent startup failures after machine crashes.
 
 ## Telegram Access Control
 
