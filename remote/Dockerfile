@@ -69,13 +69,19 @@ RUN curl -fsSL https://bun.sh/install | bash \
 # Or in CI: --build-arg CACHEBUST=${{ github.sha }}
 ARG CACHEBUST=1
 ENV NODE_LLAMA_CPP_GPU=false
+WORKDIR /tmp
 RUN npm install -g openclaw@latest @tobilu/qmd@latest \
     && chmod -R a+w /usr/lib/node_modules/@tobilu/qmd/node_modules/node-llama-cpp/ \
     && echo '{"backend":"qmd","qmd":{"command":"qmd","includeDefaultMemory":true}}' > /tmp/qmd-test.json \
-    && cd /tmp && mkdir -p qmd-warmup && echo "# test" > qmd-warmup/test.md \
-    && qmd update 2>&1 || true \
-    && qmd embed 2>&1 || true \
-    && echo "QMD llama.cpp binary pre-compiled"
+    && mkdir -p qmd-warmup && echo "# test" > qmd-warmup/test.md \
+    && if ! qmd update 2>&1; then \
+        echo "WARNING: qmd update failed during image build; runtime warmup will retry."; \
+    fi \
+    && if ! qmd embed 2>&1; then \
+        echo "WARNING: qmd embed failed during image build; runtime warmup will retry."; \
+    fi \
+    && echo "QMD precompile step completed (check warnings above for fallback-to-runtime cases)"
+WORKDIR /
 
 # ACP harnesses (Claude Code + Codex CLIs for agent coding sessions)
 RUN npm install -g @anthropic-ai/claude-code@latest @openai/codex@latest

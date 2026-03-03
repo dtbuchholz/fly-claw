@@ -23,6 +23,11 @@ if [ -d "$LLAMA_CPP_DIR" ]; then
     rm -rf "$LLAMA_CPP_DIR/localBuilds"
     ln -sfn "$PERSIST_BUILDS" "$LLAMA_CPP_DIR/localBuilds"
     echo "✓ node-llama-cpp builds linked to persistent volume"
+    if [ "$(find "$PERSIST_BUILDS" -mindepth 1 -maxdepth 1 | wc -l | tr -d ' ')" -gt 0 ]; then
+        echo "✓ node-llama-cpp cache detected in $PERSIST_BUILDS"
+    else
+        echo "Warning: node-llama-cpp cache is empty; first successful qmd embed will populate it."
+    fi
 fi
 
 # --- 2. Symlink persistent dirs into agent home ---
