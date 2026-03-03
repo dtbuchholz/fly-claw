@@ -70,7 +70,12 @@ RUN curl -fsSL https://bun.sh/install | bash \
 ARG CACHEBUST=1
 ENV NODE_LLAMA_CPP_GPU=false
 RUN npm install -g openclaw@latest @tobilu/qmd@latest \
-    && chmod -R a+w /usr/lib/node_modules/@tobilu/qmd/node_modules/node-llama-cpp/
+    && chmod -R a+w /usr/lib/node_modules/@tobilu/qmd/node_modules/node-llama-cpp/ \
+    && echo '{"backend":"qmd","qmd":{"command":"qmd","includeDefaultMemory":true}}' > /tmp/qmd-test.json \
+    && cd /tmp && mkdir -p qmd-warmup && echo "# test" > qmd-warmup/test.md \
+    && qmd update 2>&1 || true \
+    && qmd embed 2>&1 || true \
+    && echo "QMD llama.cpp binary pre-compiled"
 
 # ACP harnesses (Claude Code + Codex CLIs for agent coding sessions)
 RUN npm install -g @anthropic-ai/claude-code@latest @openai/codex@latest
