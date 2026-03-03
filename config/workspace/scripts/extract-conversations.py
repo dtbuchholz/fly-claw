@@ -432,6 +432,11 @@ def main():
     for md in OUTPUT_DIR.rglob("*.md"):
         md.unlink()
 
+    if not AGENTS_DIR.exists():
+        print(f"No agents directory found at {AGENTS_DIR}; nothing to index.")
+        print(f"Digests:  0 written to {OUTPUT_DIR}")
+        return
+
     total_sessions = 0
     total_digests = 0
 

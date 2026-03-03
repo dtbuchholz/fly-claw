@@ -111,21 +111,12 @@
           "placeholder": "[Old tool result cleared]"
         },
         "tools": {
-          "allow": [
-            "exec",
-            "read",
-            "web_fetch",
-            "browser",
-            "process"
-          ],
-          "deny": [
-            "memory_search",
-            "memory_get"
-          ]
+          "allow": ["exec", "read", "web_fetch", "browser", "process"],
+          "deny": ["memory_search", "memory_get"]
         }
       },
       "heartbeat": {
-        "every": "365d"
+        "every": "0m"
       }
     }
   },
@@ -148,10 +139,7 @@
     },
     "backend": "acpx",
     "defaultAgent": "codex",
-    "allowedAgents": [
-      "codex",
-      "claude"
-    ],
+    "allowedAgents": ["codex", "claude"],
     "maxConcurrentSessions": 4,
     "stream": {
       "coalesceIdleMs": 300,

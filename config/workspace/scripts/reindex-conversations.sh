@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # Extract conversation digests from OpenClaw session JSONL files and trigger QMD reindex.
 # Run periodically (e.g., daily cron or after state-sync) to keep conversations searchable.
 set -euo pipefail
