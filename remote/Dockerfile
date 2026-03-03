@@ -68,6 +68,7 @@ RUN curl -fsSL https://bun.sh/install | bash \
 # Set via: flyctl deploy --build-arg CACHEBUST=$(date +%s)
 # Or in CI: --build-arg CACHEBUST=${{ github.sha }}
 ARG CACHEBUST=1
+ENV NODE_LLAMA_CPP_GPU=false
 RUN npm install -g openclaw@latest @tobilu/qmd@latest \
     && chmod -R a+w /usr/lib/node_modules/@tobilu/qmd/node_modules/node-llama-cpp/
 
