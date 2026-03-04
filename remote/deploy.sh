@@ -76,7 +76,9 @@ if [ -n "$SECRETS_JSON" ]; then
     # Warn about optional
     has_secret "TAILSCALE_AUTHKEY"    || echo "Note: TAILSCALE_AUTHKEY not set (Tailscale SSH disabled)"
     has_secret "TELEGRAM_ALLOWED_IDS" || echo "Warning: TELEGRAM_ALLOWED_IDS not set (bot accepts DMs from anyone)"
-    has_secret "GH_TOKEN"             || echo "Note: GH_TOKEN not set (gh CLI won't work)"
+    if ! has_secret "GITHUB_TOKEN" && ! has_secret "GH_TOKEN"; then
+        echo "Note: GITHUB_TOKEN/GH_TOKEN not set (gh CLI won't work)"
+    fi
     has_secret "STATE_REPO"            || echo "Note: STATE_REPO not set (state sync disabled)"
 fi
 

@@ -5,6 +5,8 @@ echo "=== Clawd Entrypoint ==="
 
 STATE_DIR="${OPENCLAW_STATE_DIR:-/data/.openclaw}"
 MAX_CONCURRENT=4
+# Backward-compatible GitHub token naming: prefer GITHUB_TOKEN, fall back to GH_TOKEN.
+GH_TOKEN_EFFECTIVE="${GITHUB_TOKEN:-${GH_TOKEN:-}}"
 
 # --- 1. Create persistent dirs ---
 mkdir -p /data/.openclaw/workspace /data/.openclaw/extensions /data/.claude /data/.codex /data/.cache /data/logs
@@ -44,7 +46,10 @@ export CLAUDE_CODE_OAUTH_TOKEN="${CLAUDE_CODE_OAUTH_TOKEN:-}"
 export OPENAI_API_KEY="${OPENAI_API_KEY:-}"
 export TELEGRAM_BOT_TOKEN="${TELEGRAM_BOT_TOKEN:-}"
 export OPENCLAW_GATEWAY_TOKEN="${OPENCLAW_GATEWAY_TOKEN:-}"
-export GH_TOKEN="${GH_TOKEN:-}"
+export GH_TOKEN="${GH_TOKEN_EFFECTIVE:-}"
+export GITHUB_TOKEN="${GITHUB_TOKEN:-}"
+export GITHUB_USERNAME="${GITHUB_USERNAME:-}"
+export GITHUB_EMAIL="${GITHUB_EMAIL:-}"
 export BRAVE_API_KEY="${BRAVE_API_KEY:-}"
 export SLACK_APP_TOKEN="${SLACK_APP_TOKEN:-}"
 export SLACK_BOT_TOKEN="${SLACK_BOT_TOKEN:-}"

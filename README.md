@@ -82,11 +82,11 @@ it completes, add the printed public key to
 secret:
 
 ```bash
-fly secrets set GH_TOKEN='ghp_...' -a my-clawd
+fly secrets set GITHUB_TOKEN='ghp_...' -a my-clawd
 make deploy
 ```
 
-The token is picked up automatically — no interactive `gh auth login` needed.
+The token is picked up automatically (`GITHUB_TOKEN`; legacy `GH_TOKEN` also works) — no interactive `gh auth login` needed.
 
 ### Slack (Optional)
 

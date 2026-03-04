@@ -43,8 +43,12 @@ if [ -n "$GIT_NAME" ] && [ -n "$GIT_EMAIL" ]; then
 fi
 
 if [ "${SKIP_GIT_ID:-}" != "true" ]; then
-    read -rp "Name: " new_name
-    read -rp "Email: " new_email
+    default_name="${GITHUB_USERNAME:-$GIT_NAME}"
+    default_email="${GITHUB_EMAIL:-$GIT_EMAIL}"
+    read -rp "Name${default_name:+ [$default_name]}: " new_name
+    read -rp "Email${default_email:+ [$default_email]}: " new_email
+    new_name="${new_name:-$default_name}"
+    new_email="${new_email:-$default_email}"
     git config --global user.name "$new_name"
     git config --global user.email "$new_email"
     GIT_NAME="$new_name"
@@ -115,13 +119,13 @@ header "GitHub CLI"
 if gh auth status &>/dev/null; then
     ok "Already authenticated"
     gh auth status 2>&1 | head -5
-elif [ -n "${GH_TOKEN:-}" ]; then
-    ok "GH_TOKEN detected in environment — gh CLI is authenticated"
+elif [ -n "${GITHUB_TOKEN:-}" ] || [ -n "${GH_TOKEN:-}" ]; then
+    ok "GitHub token detected in environment — gh CLI is authenticated"
     gh auth status 2>&1 | head -5 || true
 else
-    echo "To enable gh CLI, set GH_TOKEN as a Fly secret:"
+    echo "To enable gh CLI, set GITHUB_TOKEN (or legacy GH_TOKEN) as a Fly secret:"
     echo ""
-    echo "  fly secrets set GH_TOKEN='ghp_...' -a <app-name>"
+    echo "  fly secrets set GITHUB_TOKEN='ghp_...' -a <app-name>"
     echo "  make deploy"
     echo ""
     echo "Create a token at https://github.com/settings/tokens (classic, repo scope)"

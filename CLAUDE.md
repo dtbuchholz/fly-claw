@@ -161,7 +161,7 @@ Three layers of config/skills are seeded on deploy, each from a different source
 
 **Seeding behavior:**
 
-- Repos are cloned via HTTPS on every deploy (uses `GH_TOKEN` for auth if set)
+- Repos are cloned via HTTPS on every deploy (uses `GITHUB_TOKEN` or `GH_TOKEN` for auth if set)
 - Root config files (`settings.json`, `config.toml`) are seeded once — never overwritten
 - Subdirectories (`hooks/`, `skills/`, `agents/`, `policy/`) use per-item merge: new items are added, existing items are preserved
 - State-repo restore runs after seeding and overrides everything
