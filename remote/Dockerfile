@@ -96,10 +96,8 @@ RUN npm install -g @steipete/summarize@latest \
 
 # Codex wrapper: unset OPENAI_API_KEY so Codex uses OAuth (from codex login --device-auth)
 # instead of the API key. OPENAI_API_KEY stays available for other processes (TTS, etc.).
-# Preserve whichever codex binary npm installed, then add a wrapper in PATH.
-RUN cp "$(command -v codex)" /usr/local/bin/codex-real \
-    && chmod +x /usr/local/bin/codex-real \
-    && printf '#!/bin/bash\nunset OPENAI_API_KEY\nexec /usr/local/bin/codex-real "$@"\n' \
+# IMPORTANT: exec /usr/bin/codex (npm symlink) so optional platform modules resolve correctly.
+RUN printf '#!/bin/bash\nunset OPENAI_API_KEY\nexec /usr/bin/codex "$@"\n' \
         > /usr/local/bin/codex \
     && chmod +x /usr/local/bin/codex
 
