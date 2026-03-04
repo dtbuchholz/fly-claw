@@ -93,8 +93,7 @@
         "mode": "default",
         "reserveTokensFloor": 30000,
         "memoryFlush": {
-          "enabled": true,
-          "softThresholdTokens": 4000
+          "enabled": false
         }
       },
       "contextPruning": {
