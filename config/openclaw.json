@@ -87,6 +87,24 @@
           "alias": "Codex"
         }
       },
+      "memorySearch": {
+        "extraPaths": ["journal", "patterns", "docs"],
+        "query": {
+          "hybrid": {
+            "enabled": true,
+            "vectorWeight": 0.7,
+            "textWeight": 0.3,
+            "mmr": {
+              "enabled": true,
+              "lambda": 0.7
+            },
+            "temporalDecay": {
+              "enabled": true,
+              "halfLifeDays": 30
+            }
+          }
+        }
+      },
       "sandbox": {
         "mode": "off"
       },
@@ -159,16 +177,18 @@
     "backend": "qmd",
     "citations": "auto",
     "qmd": {
+      "command": "qmd",
       "includeDefaultMemory": true,
       "update": {
         "interval": "5m",
         "debounceMs": 15000,
+        "onBoot": true,
         "waitForBootSync": false
       },
       "limits": {
-        "maxResults": 6,
+        "maxResults": 8,
         "maxSnippetChars": 2000,
-        "timeoutMs": 4000
+        "timeoutMs": 5000
       },
       "paths": [
         {
