@@ -142,6 +142,7 @@ deploy-force:
 	./remote/deploy.sh || status=$$?; \
 	fly secrets unset CRON_SYNC_MODE -a $(FLY_APP); \
 	fly secrets unset FORCE_AGENT_CONFIG -a $(FLY_APP); \
+	if [ $$status -ne 0 ]; then echo "⚠ Deploy failed — re-run this target to retry (secrets are cleaned up to prevent leaking into normal deploys)"; fi; \
 	exit $$status
 
 deploy-cron-upsert:
@@ -150,6 +151,7 @@ deploy-cron-upsert:
 	status=0; \
 	./remote/deploy.sh || status=$$?; \
 	fly secrets unset CRON_SYNC_MODE -a $(FLY_APP); \
+	if [ $$status -ne 0 ]; then echo "⚠ Deploy failed — re-run this target to retry (secrets are cleaned up to prevent leaking into normal deploys)"; fi; \
 	exit $$status
 
 deploy-force-cron-upsert:
@@ -160,6 +162,7 @@ deploy-force-cron-upsert:
 	./remote/deploy.sh || status=$$?; \
 	fly secrets unset CRON_SYNC_MODE -a $(FLY_APP); \
 	fly secrets unset FORCE_AGENT_CONFIG -a $(FLY_APP); \
+	if [ $$status -ne 0 ]; then echo "⚠ Deploy failed — re-run this target to retry (secrets are cleaned up to prevent leaking into normal deploys)"; fi; \
 	exit $$status
 
 FLY_APP = $(shell test -f fly.toml && grep '^app' fly.toml | head -1 | sed 's/app *= *"\(.*\)"/\1/')
