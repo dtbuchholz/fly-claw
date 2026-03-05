@@ -140,8 +140,12 @@ deploy-force:
 	fly secrets set CRON_SYNC_MODE=models-only -a $(FLY_APP) --stage; \
 	status=0; \
 	./remote/deploy.sh || status=$$?; \
-	fly secrets unset CRON_SYNC_MODE -a $(FLY_APP); \
-	fly secrets unset FORCE_AGENT_CONFIG -a $(FLY_APP); \
+	if [ $$status -eq 0 ]; then \
+		fly secrets unset CRON_SYNC_MODE -a $(FLY_APP); \
+		fly secrets unset FORCE_AGENT_CONFIG -a $(FLY_APP); \
+	else \
+		echo "Deploy failed; staged flags are preserved for retry. Re-run this target or unset CRON_SYNC_MODE/FORCE_AGENT_CONFIG manually."; \
+	fi; \
 	exit $$status
 
 deploy-cron-upsert:
@@ -149,7 +153,11 @@ deploy-cron-upsert:
 	fly secrets set CRON_SYNC_MODE=upsert-by-id -a $(FLY_APP) --stage; \
 	status=0; \
 	./remote/deploy.sh || status=$$?; \
-	fly secrets unset CRON_SYNC_MODE -a $(FLY_APP); \
+	if [ $$status -eq 0 ]; then \
+		fly secrets unset CRON_SYNC_MODE -a $(FLY_APP); \
+	else \
+		echo "Deploy failed; staged CRON_SYNC_MODE is preserved for retry. Re-run this target or unset CRON_SYNC_MODE manually."; \
+	fi; \
 	exit $$status
 
 deploy-force-cron-upsert:
@@ -158,8 +166,12 @@ deploy-force-cron-upsert:
 	fly secrets set CRON_SYNC_MODE=upsert-by-id -a $(FLY_APP) --stage; \
 	status=0; \
 	./remote/deploy.sh || status=$$?; \
-	fly secrets unset CRON_SYNC_MODE -a $(FLY_APP); \
-	fly secrets unset FORCE_AGENT_CONFIG -a $(FLY_APP); \
+	if [ $$status -eq 0 ]; then \
+		fly secrets unset CRON_SYNC_MODE -a $(FLY_APP); \
+		fly secrets unset FORCE_AGENT_CONFIG -a $(FLY_APP); \
+	else \
+		echo "Deploy failed; staged flags are preserved for retry. Re-run this target or unset CRON_SYNC_MODE/FORCE_AGENT_CONFIG manually."; \
+	fi; \
 	exit $$status
 
 FLY_APP = $(shell test -f fly.toml && grep '^app' fly.toml | head -1 | sed 's/app *= *"\(.*\)"/\1/')

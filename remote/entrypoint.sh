@@ -175,10 +175,32 @@ _sync_cron_jobs_upsert_by_id() {
         .[1] as $seed |
         ($live.jobs // []) as $liveJobs |
         ($seed.jobs // []) as $seedJobs |
+
+        # Build lookup maps for seed jobs
         ($seedJobs | map(select(.id != null)) | map({key: .id, value: .}) | from_entries) as $seedById |
-        ($liveJobs | map(.id)) as $liveIds |
-        ($liveJobs | map(if (.id != null and ($seedById[.id] != null)) then $seedById[.id] else . end)) as $merged |
-        ($seedJobs | map(. as $job | select($job.id != null and (($liveIds | index($job.id)) == null)))) as $missing |
+        ($seedJobs | map(select(.name != null)) | map({key: .name, value: .}) | from_entries) as $seedByName |
+
+        # Merge: ID match first, then name fallback (handles ID drift)
+        ($liveJobs | map(
+            if (.id != null and $seedById[.id] != null) then
+                # ID match — replace with seed version, preserve runtime state
+                ($seedById[.id] * {state: .state})
+            elif (.name != null and $seedByName[.name] != null) then
+                # Name match (ID changed) — adopt seed version + new ID, preserve state
+                ($seedByName[.name] * {state: .state})
+            else
+                # No match — custom job, keep as-is
+                .
+            end
+        )) as $merged |
+
+        # Collect all matched IDs and names to detect truly new seed jobs
+        ($merged | [.[].id, .[].name] | map(select(. != null))) as $matchedKeys |
+        ($seedJobs | map(select(
+            (.id as $id | ($matchedKeys | index($id)) == null) and
+            (.name as $n | ($matchedKeys | index($n)) == null)
+        ))) as $missing |
+
         $live | .jobs = ($merged + $missing)
     ' "$target" "$seed" > "${target}.tmp" && mv "${target}.tmp" "$target"
 }
