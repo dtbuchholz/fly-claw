@@ -217,10 +217,14 @@ _sync_cron_jobs() {
 }
 
 CRON_SYNC_MODE="${CRON_SYNC_MODE:-off}"
+CRON_MODEL_EFFECTIVE="${CRON_MODEL:-$DEFAULT_CRON_MODEL}"
 if [ "${FORCE_AGENT_CONFIG:-}" = "1" ]; then
     _patch_agent_settings /data/.openclaw/openclaw.json
-    CRON_MODEL="${CRON_MODEL:-$DEFAULT_CRON_MODEL}"
-    _sync_cron_jobs /data/.openclaw/cron/jobs.json /opt/openclaw/cron/jobs.json "$CRON_SYNC_MODE" "$CRON_MODEL"
+fi
+# Optionally sync cron definitions outside FORCE_AGENT_CONFIG flow.
+# This enables targeted cron updates without forcing all agent config defaults.
+if [ "${CRON_SYNC_MODE:-off}" != "off" ]; then
+    _sync_cron_jobs /data/.openclaw/cron/jobs.json /opt/openclaw/cron/jobs.json "$CRON_SYNC_MODE" "$CRON_MODEL_EFFECTIVE"
 fi
 
 # --- 5. Inject Telegram allowlist + group access ---

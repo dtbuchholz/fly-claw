@@ -60,6 +60,12 @@ To force-refresh agent config and upsert repo-managed cron jobs (by job id) whil
 make deploy-force-cron-upsert
 ```
 
+To upsert only repo-managed cron jobs (without forcing all agent config defaults), use:
+
+```bash
+make deploy-cron-upsert
+```
+
 ### Tailscale SSH (Optional)
 
 ```bash
@@ -218,6 +224,7 @@ allowed groups.
 | `make fly-init APP=<name>`      | Generate `fly.toml` from template                             |
 | `make deploy`                   | Deploy to Fly.io                                              |
 | `make deploy-force`             | Deploy + overwrite agent config                               |
+| `make deploy-cron-upsert`       | Deploy + upsert repo cron jobs by id (preserve custom jobs)   |
 | `make deploy-force-cron-upsert` | Deploy + overwrite agent config + upsert repo cron jobs by id |
 | `make fly-logs`                 | Tail remote logs                                              |
 | `make fly-status`               | Check remote VM status                                        |
