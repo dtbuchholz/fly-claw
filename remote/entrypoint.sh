@@ -178,7 +178,7 @@ _sync_cron_jobs_upsert_by_id() {
         ($seedJobs | map(select(.id != null)) | map({key: .id, value: .}) | from_entries) as $seedById |
         ($liveJobs | map(.id)) as $liveIds |
         ($liveJobs | map(if (.id != null and ($seedById[.id] != null)) then $seedById[.id] else . end)) as $merged |
-        ($seedJobs | map(select(.id != null and (($liveIds | index(.id)) == null)))) as $missing |
+        ($seedJobs | map(. as $job | select($job.id != null and (($liveIds | index($job.id)) == null)))) as $missing |
         $live | .jobs = ($merged + $missing)
     ' "$target" "$seed" > "${target}.tmp" && mv "${target}.tmp" "$target"
 }
