@@ -71,7 +71,7 @@ while IFS='=' read -r key _; do
         PATH|HOME|HOSTNAME|SHELL|USER|PWD|OLDPWD|SHLVL|TERM|LANG|LC_*|_) continue ;;
         DEBIAN_FRONTEND|PUPPETEER_*|CHROMIUM_*|NODE_OPTIONS) continue ;;
         FLY_*|PRIMARY_REGION|LOG_LEVEL) continue ;;
-        TAILSCALE_AUTHKEY|TELEGRAM_ALLOWED_IDS|TELEGRAM_GROUP_IDS|CRON_MODEL|FORCE_AGENT_CONFIG) continue ;;
+        TAILSCALE_AUTHKEY|TELEGRAM_ALLOWED_IDS|TELEGRAM_GROUP_IDS|CRON_MODEL|CRON_SYNC_MODE|FORCE_AGENT_CONFIG) continue ;;
     esac
     _extra_secrets+="$(printf 'export %s="%s"\n' "$key" "${!key}")"$'\n'
 done < <(env)
@@ -156,17 +156,71 @@ _patch_agent_settings() {
         .session.reset = { "mode": "idle", "idleMinutes": 60 }
     ' "$target" > "${target}.tmp" && mv "${target}.tmp" "$target"
 }
+
+_patch_cron_models() {
+    local target="$1"
+    local model="$2"
+    jq --arg model "$model" '
+        .jobs |= map(
+            if (.payload.model // "" | test("^openrouter/")) then .payload.model = $model else . end
+        )
+    ' "$target" > "${target}.tmp" && mv "${target}.tmp" "$target"
+}
+
+_sync_cron_jobs_upsert_by_id() {
+    local target="$1"
+    local seed="$2"
+    jq -s '
+        .[0] as $live |
+        .[1] as $seed |
+        ($live.jobs // []) as $liveJobs |
+        ($seed.jobs // []) as $seedJobs |
+        ($seedJobs | map(select(.id != null)) | map({key: .id, value: .}) | from_entries) as $seedById |
+        ($liveJobs | map(.id)) as $liveIds |
+        ($liveJobs | map(if (.id != null and ($seedById[.id] != null)) then $seedById[.id] else . end)) as $merged |
+        ($seedJobs | map(select(.id != null and (($liveIds | index(.id)) == null)))) as $missing |
+        $live | .jobs = ($merged + $missing)
+    ' "$target" "$seed" > "${target}.tmp" && mv "${target}.tmp" "$target"
+}
+
+_sync_cron_jobs() {
+    local target="$1"
+    local seed="$2"
+    local mode="$3"
+    local model="$4"
+    if [ ! -f "$target" ]; then
+        return 0
+    fi
+    case "$mode" in
+        off)
+            echo "Cron sync mode: off (leaving existing jobs unchanged)"
+            ;;
+        models-only)
+            echo "Cron sync mode: models-only"
+            _patch_cron_models "$target" "$model"
+            ;;
+        upsert-by-id)
+            echo "Cron sync mode: upsert-by-id (repo IDs overwrite, custom jobs preserved)"
+            _sync_cron_jobs_upsert_by_id "$target" "$seed"
+            _patch_cron_models "$target" "$model"
+            ;;
+        replace-all)
+            echo "Cron sync mode: replace-all (overwriting live cron config from repo)"
+            cp "$seed" "$target"
+            _patch_cron_models "$target" "$model"
+            ;;
+        *)
+            echo "Warning: unknown CRON_SYNC_MODE='$mode' (expected off|models-only|upsert-by-id|replace-all). Using models-only."
+            _patch_cron_models "$target" "$model"
+            ;;
+    esac
+}
+
+CRON_SYNC_MODE="${CRON_SYNC_MODE:-off}"
 if [ "${FORCE_AGENT_CONFIG:-}" = "1" ]; then
     _patch_agent_settings /data/.openclaw/openclaw.json
-    # Also patch cron job models when force-applying config
-    if [ -f /data/.openclaw/cron/jobs.json ]; then
-        CRON_MODEL="${CRON_MODEL:-$DEFAULT_CRON_MODEL}"
-        jq --arg model "$CRON_MODEL" '
-            .jobs |= map(
-                if (.payload.model // "" | test("^openrouter/")) then .payload.model = $model else . end
-            )
-        ' /data/.openclaw/cron/jobs.json > /tmp/cron-patch.tmp && mv /tmp/cron-patch.tmp /data/.openclaw/cron/jobs.json
-    fi
+    CRON_MODEL="${CRON_MODEL:-$DEFAULT_CRON_MODEL}"
+    _sync_cron_jobs /data/.openclaw/cron/jobs.json /opt/openclaw/cron/jobs.json "$CRON_SYNC_MODE" "$CRON_MODEL"
 fi
 
 # --- 5. Inject Telegram allowlist + group access ---
@@ -320,15 +374,8 @@ if [ "$_state_restored" -eq 1 ]; then
         /data/.openclaw/openclaw.json > /data/.openclaw/openclaw.json.tmp \
         && mv /data/.openclaw/openclaw.json.tmp /data/.openclaw/openclaw.json
     _patch_agent_settings /data/.openclaw/openclaw.json
-    # Patch cron job models to match current credentials (state-repo may have stale provider prefixes)
-    if [ -f /data/.openclaw/cron/jobs.json ]; then
-        echo "Patching cron job models after state restore..."
-        jq --arg model "$DEFAULT_CRON_MODEL" '
-            .jobs |= map(
-                if (.payload.model // "" | test("^openrouter/")) then .payload.model = $model else . end
-            )
-        ' /data/.openclaw/cron/jobs.json > /tmp/cron-patch.tmp && mv /tmp/cron-patch.tmp /data/.openclaw/cron/jobs.json
-    fi
+    # Apply cron sync policy after state restore (restored cron may be stale).
+    _sync_cron_jobs /data/.openclaw/cron/jobs.json /opt/openclaw/cron/jobs.json "${CRON_SYNC_MODE:-models-only}" "$DEFAULT_CRON_MODEL"
 fi
 
 # --- 9. Fix permissions ---

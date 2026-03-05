@@ -1,5 +1,5 @@
 .PHONY: build up down status logs shell reset restart onboard network-setup help \
-       fly-init deploy deploy-force fly-logs fly-status fly-console fly-auth \
+       fly-init deploy deploy-force deploy-force-cron-upsert fly-logs fly-status fly-console fly-auth \
        format format-check lint lint-shell lint-docker setup
 
 SANDBOX_NAME ?= clawd
@@ -37,6 +37,7 @@ help:
 	@echo "  make fly-init APP=<name>  Generate fly.toml from template"
 	@echo "  make deploy               Deploy to Fly.io"
 	@echo "  make deploy-force         Deploy + overwrite agent config (models, context, compaction)"
+	@echo "  make deploy-force-cron-upsert Deploy + force agent config + upsert repo cron jobs by id"
 	@echo "  make fly-logs             Tail remote logs"
 	@echo "  make fly-status           Check remote VM status"
 	@echo "  make fly-console          SSH into remote VM"
@@ -135,8 +136,20 @@ deploy:
 deploy-force:
 	@set -e; \
 	fly secrets set FORCE_AGENT_CONFIG=1 -a $(FLY_APP) --stage; \
+	fly secrets set CRON_SYNC_MODE=models-only -a $(FLY_APP) --stage; \
 	status=0; \
 	./remote/deploy.sh || status=$$?; \
+	fly secrets unset CRON_SYNC_MODE -a $(FLY_APP); \
+	fly secrets unset FORCE_AGENT_CONFIG -a $(FLY_APP); \
+	exit $$status
+
+deploy-force-cron-upsert:
+	@set -e; \
+	fly secrets set FORCE_AGENT_CONFIG=1 -a $(FLY_APP) --stage; \
+	fly secrets set CRON_SYNC_MODE=upsert-by-id -a $(FLY_APP) --stage; \
+	status=0; \
+	./remote/deploy.sh || status=$$?; \
+	fly secrets unset CRON_SYNC_MODE -a $(FLY_APP); \
 	fly secrets unset FORCE_AGENT_CONFIG -a $(FLY_APP); \
 	exit $$status
 

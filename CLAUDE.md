@@ -64,7 +64,7 @@ Prevents token explosion in long-running Telegram threads. Configured in `config
 
 Useful runtime commands: `/status` (check context usage), `/compact` (force compaction), `/usage tokens` (token stats).
 
-**Deploy behavior:** Normal deploys (`make deploy`) only force `model.primary` and `maxConcurrent` to match available credentials and official best practices — agent-managed settings like compaction mode, context budget, and session reset are left untouched. To overwrite all agent settings with the repo defaults, use `make deploy-force`. State-repo restores (fresh volumes) always apply the full patch to fix stale config. Stale gateway lock files (`gateway.*.lock`) are cleaned on every boot to prevent startup failures after machine crashes.
+**Deploy behavior:** Normal deploys (`make deploy`) only force `model.primary` and `maxConcurrent` to match available credentials and official best practices — agent-managed settings like compaction mode, context budget, and session reset are left untouched. To overwrite agent settings with repo defaults, use `make deploy-force`. For cron sync policy during forced deploys, `CRON_SYNC_MODE` controls behavior (`off`, `models-only`, `upsert-by-id`, `replace-all`); `make deploy-force-cron-upsert` uses `upsert-by-id` so repo cron IDs are updated while custom jobs are preserved. State-repo restores (fresh volumes) apply agent patching and cron sync policy to fix stale config. Stale gateway lock files (`gateway.*.lock`) are cleaned on every boot to prevent startup failures after machine crashes.
 
 ## Telegram Access Control
 

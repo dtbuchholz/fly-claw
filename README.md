@@ -54,6 +54,12 @@ make deploy
 
 After editing config or workspace files, redeploy with `make deploy`.
 
+To force-refresh agent config and upsert repo-managed cron jobs (by job id) while preserving custom live jobs, use:
+
+```bash
+make deploy-force-cron-upsert
+```
+
 ### Tailscale SSH (Optional)
 
 ```bash
@@ -194,27 +200,28 @@ allowed groups.
 
 ## Commands
 
-| Command                    | Description                            |
-| -------------------------- | -------------------------------------- |
-| `make up`                  | Build + create sandbox + start gateway |
-| `make down`                | Stop sandbox                           |
-| `make shell`               | Interactive shell in sandbox           |
-| `make logs`                | Tail gateway logs                      |
-| `make status`              | Check sandbox and gateway health       |
-| `make reset`               | Destroy and recreate sandbox           |
-| `make setup`               | Install pre-commit hooks               |
-| `make format`              | Auto-format with Prettier              |
-| `make format-check`        | Check formatting (CI)                  |
-| `make lint`                | Run all linters                        |
-| `make lint-shell`          | Lint shell scripts (shellcheck)        |
-| `make lint-docker`         | Lint Dockerfiles (hadolint)            |
-| **Remote (Fly.io)**        |                                        |
-| `make fly-init APP=<name>` | Generate `fly.toml` from template      |
-| `make deploy`              | Deploy to Fly.io                       |
-| `make deploy-force`        | Deploy + overwrite agent config        |
-| `make fly-logs`            | Tail remote logs                       |
-| `make fly-status`          | Check remote VM status                 |
-| `make fly-console`         | SSH into remote VM                     |
+| Command                         | Description                                                   |
+| ------------------------------- | ------------------------------------------------------------- |
+| `make up`                       | Build + create sandbox + start gateway                        |
+| `make down`                     | Stop sandbox                                                  |
+| `make shell`                    | Interactive shell in sandbox                                  |
+| `make logs`                     | Tail gateway logs                                             |
+| `make status`                   | Check sandbox and gateway health                              |
+| `make reset`                    | Destroy and recreate sandbox                                  |
+| `make setup`                    | Install pre-commit hooks                                      |
+| `make format`                   | Auto-format with Prettier                                     |
+| `make format-check`             | Check formatting (CI)                                         |
+| `make lint`                     | Run all linters                                               |
+| `make lint-shell`               | Lint shell scripts (shellcheck)                               |
+| `make lint-docker`              | Lint Dockerfiles (hadolint)                                   |
+| **Remote (Fly.io)**             |                                                               |
+| `make fly-init APP=<name>`      | Generate `fly.toml` from template                             |
+| `make deploy`                   | Deploy to Fly.io                                              |
+| `make deploy-force`             | Deploy + overwrite agent config                               |
+| `make deploy-force-cron-upsert` | Deploy + overwrite agent config + upsert repo cron jobs by id |
+| `make fly-logs`                 | Tail remote logs                                              |
+| `make fly-status`               | Check remote VM status                                        |
+| `make fly-console`              | SSH into remote VM                                            |
 
 ## Repo Structure
 
