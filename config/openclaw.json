@@ -1,63 +1,20 @@
 {
-  "gateway": {
-    "port": 18789,
-    "bind": "loopback",
-    "mode": "local",
-    "auth": {
-      "mode": "token"
-    },
-    "channelHealthCheckMinutes": 120
+  "meta": {
+    "lastTouchedVersion": "2026.3.2",
+    "lastTouchedAt": "2026-03-08T23:24:23.739Z"
   },
-  "channels": {
-    "telegram": {
-      "enabled": true,
-      "dmPolicy": "allowlist",
-      "allowFrom": [],
-      "streaming": "partial"
-    },
-    "slack": {
-      "enabled": true,
-      "mode": "socket",
-      "groupPolicy": "open",
-      "streaming": "partial",
-      "nativeStreaming": false
-    }
-  },
-  "tools": {
-    "media": {
-      "audio": {
-        "echoTranscript": true
-      }
-    }
-  },
-  "plugins": {
-    "entries": {
-      "telegram": {
-        "enabled": true
-      },
-      "slack": {
-        "enabled": true
-      },
-      "acpx": {
-        "enabled": true,
-        "config": {
-          "permissionMode": "approve-all"
-        }
-      }
-    }
-  },
-  "messages": {
-    "tts": {
-      "auto": "off",
-      "provider": "openai"
-    }
+  "wizard": {
+    "lastRunAt": "2026-02-27T00:42:20.330Z",
+    "lastRunVersion": "2026.2.26",
+    "lastRunCommand": "doctor",
+    "lastRunMode": "local"
   },
   "browser": {
     "enabled": true,
+    "executablePath": "/usr/bin/chromium",
     "headless": true,
     "noSandbox": true,
     "attachOnly": true,
-    "executablePath": "/usr/bin/chromium",
     "defaultProfile": "openclaw",
     "profiles": {
       "openclaw": {
@@ -66,9 +23,20 @@
       }
     }
   },
+  "acp": {
+    "enabled": true,
+    "dispatch": {
+      "enabled": true
+    },
+    "backend": "acpx",
+    "defaultAgent": "codex",
+    "allowedAgents": [
+      "codex",
+      "claude"
+    ]
+  },
   "agents": {
     "defaults": {
-      "maxConcurrent": 4,
       "model": {
         "primary": "anthropic/claude-opus-4-6",
         "fallbacks": [
@@ -90,6 +58,7 @@
           "alias": "Codex"
         }
       },
+      "contextTokens": 200000,
       "memorySearch": {
         "extraPaths": [
           "journal",
@@ -113,30 +82,10 @@
           }
         }
       },
-      "sandbox": {
-        "mode": "off"
-      },
-      "contextTokens": 200000,
-      "compaction": {
-        "mode": "default",
-        "reserveTokensFloor": 30000,
-        "memoryFlush": {
-          "enabled": false
-        }
-      },
       "contextPruning": {
         "mode": "cache-ttl",
         "ttl": "5m",
         "keepLastAssistants": 3,
-        "softTrim": {
-          "maxChars": 4000,
-          "headChars": 1500,
-          "tailChars": 1500
-        },
-        "hardClear": {
-          "enabled": true,
-          "placeholder": "[Old tool result cleared]"
-        },
         "tools": {
           "allow": [
             "exec",
@@ -149,17 +98,74 @@
             "memory_search",
             "memory_get"
           ]
+        },
+        "softTrim": {
+          "maxChars": 4000,
+          "headChars": 1500,
+          "tailChars": 1500
+        },
+        "hardClear": {
+          "enabled": true,
+          "placeholder": "[Old tool result cleared]"
+        }
+      },
+      "compaction": {
+        "mode": "default",
+        "reserveTokensFloor": 30000,
+        "memoryFlush": {
+          "enabled": true,
+          "softThresholdTokens": 4000
         }
       },
       "heartbeat": {
         "every": "0m"
+      },
+      "maxConcurrent": 4,
+      "subagents": {
+        "maxConcurrent": 8
+      },
+      "sandbox": {
+        "mode": "off"
       }
     }
+  },
+  "tools": {
+    "media": {
+      "audio": {
+        "enabled": true,
+        "models": [
+          {
+            "provider": "openai",
+            "model": "gpt-4o-mini-transcribe",
+            "capabilities": [
+              "audio"
+            ]
+          }
+        ],
+        "echoTranscript": true
+      }
+    },
+    "sessions": {
+      "visibility": "agent"
+    }
+  },
+  "messages": {
+    "ackReactionScope": "group-mentions",
+    "tts": {
+      "auto": "off",
+      "provider": "openai"
+    }
+  },
+  "commands": {
+    "native": "auto",
+    "nativeSkills": "auto",
+    "restart": true,
+    "ownerDisplay": "raw"
   },
   "session": {
     "reset": {
       "mode": "idle",
-      "idleMinutes": 60
+      "idleMinutes": 180
     },
     "maintenance": {
       "mode": "enforce",
@@ -168,48 +174,59 @@
       "maxDiskBytes": "2gb"
     }
   },
-  "acp": {
-    "enabled": true,
-    "dispatch": {
-      "enabled": true
-    },
-    "backend": "acpx",
-    "defaultAgent": "codex",
-    "allowedAgents": [
-      "codex",
-      "claude"
-    ],
-    "maxConcurrentSessions": 4,
-    "stream": {
-      "coalesceIdleMs": 300,
-      "maxChunkChars": 1200
-    },
-    "runtime": {
-      "ttlMinutes": 120
-    }
-  },
   "hooks": {
     "internal": {
-      "enabled": true
+      "enabled": true,
+      "entries": {
+        "session-memory": {
+          "enabled": true
+        },
+        "boot-md": {
+          "enabled": true
+        }
+      }
     }
+  },
+  "channels": {
+    "telegram": {
+      "enabled": true,
+      "dmPolicy": "allowlist",
+      "groups": {
+        "-1003782901451": {
+          "requireMention": false,
+          "groupPolicy": "open"
+        }
+      },
+      "allowFrom": [
+        732702245
+      ],
+      "groupPolicy": "allowlist",
+      "streaming": "partial"
+    },
+    "slack": {
+      "mode": "socket",
+      "webhookPath": "/slack/events",
+      "enabled": true,
+      "userTokenReadOnly": true,
+      "groupPolicy": "open",
+      "streaming": "partial",
+      "nativeStreaming": false
+    }
+  },
+  "gateway": {
+    "port": 18789,
+    "mode": "local",
+    "bind": "loopback",
+    "auth": {
+      "mode": "token"
+    },
+    "channelHealthCheckMinutes": 120
   },
   "memory": {
     "backend": "qmd",
-    "citations": "auto",
     "qmd": {
       "command": "qmd",
       "includeDefaultMemory": true,
-      "update": {
-        "interval": "5m",
-        "debounceMs": 15000,
-        "onBoot": true,
-        "waitForBootSync": false
-      },
-      "limits": {
-        "maxResults": 8,
-        "maxSnippetChars": 2000,
-        "timeoutMs": 5000
-      },
       "paths": [
         {
           "path": "journal",
@@ -236,7 +253,31 @@
           "name": "research",
           "pattern": "**/*.md"
         }
-      ]
+      ],
+      "update": {
+        "interval": "5m",
+        "onBoot": true
+      },
+      "limits": {
+        "maxResults": 8,
+        "timeoutMs": 5000
+      }
+    }
+  },
+  "plugins": {
+    "entries": {
+      "telegram": {
+        "enabled": true
+      },
+      "slack": {
+        "enabled": true
+      },
+      "acpx": {
+        "enabled": true,
+        "config": {
+          "permissionMode": "approve-all"
+        }
+      }
     }
   }
 }

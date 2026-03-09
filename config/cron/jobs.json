@@ -4,66 +4,146 @@
     {
       "id": "a1b2c3d4-1111-4000-8000-000000000001",
       "name": "daily-security-audit",
-      "schedule": "0 14 * * *",
+      "schedule": {
+        "kind": "cron",
+        "expr": "0 14 * * *"
+      },
       "enabled": true,
       "payload": {
+        "kind": "agentTurn",
+        "message": "Run the security audit script: bash /data/.openclaw/workspace/scripts/security-audit.sh\n\nIf exit code is 0, reply with just: \"Security audit clean.\"\nIf exit code is non-zero, report each finding with severity and a suggested fix.",
         "model": "anthropic/claude-sonnet-4-5",
-        "prompt": "Run the security audit script: bash /data/.openclaw/workspace/scripts/security-audit.sh\n\nIf exit code is 0, reply with just: \"Security audit clean.\"\nIf exit code is non-zero, report each finding with severity and a suggested fix."
+        "timeoutSeconds": 120
       },
-      "wakeMode": "next-heartbeat"
+      "wakeMode": "next-heartbeat",
+      "state": {
+        "nextRunAtMs": 1773064800000,
+        "lastRunAtMs": 1772978400005,
+        "lastRunStatus": "skipped",
+        "lastStatus": "skipped",
+        "lastDurationMs": 0,
+        "lastDeliveryStatus": "not-requested",
+        "consecutiveErrors": 0,
+        "lastError": "main job requires payload.kind=\"systemEvent\""
+      },
+      "sessionTarget": "isolated",
+      "updatedAtMs": 1773019635755
     },
     {
       "id": "a1b2c3d4-2222-4000-8000-000000000002",
       "name": "daily-state-sync",
-      "schedule": "0 15 * * *",
+      "schedule": {
+        "kind": "cron",
+        "expr": "0 15 * * *"
+      },
       "enabled": true,
       "payload": {
+        "kind": "agentTurn",
+        "message": "Run the state sync script: bash /data/.openclaw/workspace/scripts/state-sync.sh\n\nIf it succeeds, reply with just: \"State sync complete.\"\nIf it fails, report the error and suggest recovery steps.",
         "model": "anthropic/claude-sonnet-4-5",
-        "prompt": "Run the state sync script: bash /data/.openclaw/workspace/scripts/state-sync.sh\n\nIf it succeeds, reply with just: \"State sync complete.\"\nIf it fails, report the error and suggest recovery steps."
+        "timeoutSeconds": 120
       },
-      "wakeMode": "next-heartbeat"
+      "wakeMode": "next-heartbeat",
+      "state": {
+        "nextRunAtMs": 1773068400000,
+        "lastRunAtMs": 1772982000005,
+        "lastRunStatus": "skipped",
+        "lastStatus": "skipped",
+        "lastDurationMs": 2,
+        "lastDeliveryStatus": "not-requested",
+        "consecutiveErrors": 0,
+        "lastError": "main job requires payload.kind=\"systemEvent\""
+      },
+      "sessionTarget": "isolated",
+      "updatedAtMs": 1773019640101
     },
     {
       "id": "a1b2c3d4-3333-4000-8000-000000000003",
       "name": "daily-memory-snapshot",
-      "schedule": "0 8 * * *",
+      "schedule": {
+        "kind": "cron",
+        "expr": "0 8 * * *"
+      },
       "enabled": true,
       "payload": {
+        "kind": "agentTurn",
+        "message": "Review recent memory files in memory/ for the last 24 hours. If anything notable happened (new learnings, resolved issues, configuration changes, user preferences discovered), consolidate into a brief update in the appropriate memory file. If nothing notable, reply ANNOUNCE_SKIP.",
         "model": "anthropic/claude-sonnet-4-5",
-        "prompt": "Review your conversation history from the last 24 hours. If anything notable happened (new learnings, resolved issues, configuration changes, user preferences discovered), write a brief summary to your memory. If nothing notable happened, stay silent \u2014 do not write anything."
+        "timeoutSeconds": 120
       },
-      "wakeMode": "next-heartbeat"
+      "wakeMode": "next-heartbeat",
+      "state": {
+        "nextRunAtMs": 1773043200000,
+        "lastRunAtMs": 1772956800004,
+        "lastRunStatus": "skipped",
+        "lastStatus": "skipped",
+        "lastDurationMs": 0,
+        "lastDeliveryStatus": "not-requested",
+        "consecutiveErrors": 0,
+        "lastError": "main job requires payload.kind=\"systemEvent\""
+      },
+      "sessionTarget": "isolated",
+      "updatedAtMs": 1773019644993
     },
     {
       "id": "a1b2c3d4-4444-4000-8000-000000000004",
       "name": "weekly-memory-rollup",
-      "schedule": "30 8 * * 5",
+      "schedule": {
+        "kind": "cron",
+        "expr": "30 8 * * 5"
+      },
       "enabled": true,
       "payload": {
+        "kind": "agentTurn",
+        "message": "Perform a weekly memory rollup:\n\n1. Read MEMORY.md\n2. Check if any facts are stale (e.g., config values that may have changed, resolved issues still listed, old project references)\n3. Read memory/*.md files for the past week\n4. Consolidate: merge redundant entries, promote recurring patterns to Key Decisions if durable, remove one-off entries\n5. Update MEMORY.md with the cleaned version\n6. Keep MEMORY.md under 80 lines — it should be scannable, not exhaustive\n7. Do NOT add project-specific status or task lists — those belong in working-context files\n\nReply with a brief summary of what changed.",
         "model": "anthropic/claude-sonnet-4-5",
-        "prompt": "Perform a weekly memory rollup:\n1. Read your MEMORY.md file\n2. Review the past week's conversations and memory entries\n3. Consolidate redundant or overlapping entries\n4. Extract recurring patterns or preferences into concise notes\n5. Remove stale or one-off entries that are no longer relevant\n6. Update MEMORY.md with the cleaned, consolidated version\n\nKeep the file concise and well-organized. Focus on durable knowledge, not transient details."
+        "timeoutSeconds": 180
       },
-      "wakeMode": "next-heartbeat"
+      "wakeMode": "next-heartbeat",
+      "state": {
+        "nextRunAtMs": 1773390600000,
+        "lastRunAtMs": 1772785800004,
+        "lastRunStatus": "skipped",
+        "lastStatus": "skipped",
+        "lastDurationMs": 0,
+        "lastError": "main job requires payload.kind=\"systemEvent\"",
+        "lastDeliveryStatus": "not-requested",
+        "consecutiveErrors": 0
+      },
+      "sessionTarget": "isolated",
+      "updatedAtMs": 1773019652810
     },
     {
       "id": "c355607a-01af-4737-b69e-032710997a46",
       "name": "working-context-snapshot",
       "schedule": {
         "kind": "every",
-        "everyMs": 1800000
+        "everyMs": 1800000,
+        "anchorMs": 1772933443519
       },
       "enabled": true,
       "payload": {
         "kind": "agentTurn",
         "model": "anthropic/claude-haiku-4-5",
         "timeoutSeconds": 90,
-        "message": "You are a working-context snapshot agent. Your job is to persist context per session so one thread cannot overwrite another.\n\nSteps:\n\n1. Call sessions_list(activeMinutes=65) to find sessions with recent activity.\n2. Filter out sessions that are only cron runs (sessionKey starting with 'cron:') or have no meaningful user messages.\n3. If NO sessions have meaningful recent activity, reply ANNOUNCE_SKIP. Do NOT touch or delete existing working-context files.\n4. For each remaining session, call sessions_history(sessionKey=<key>, limit=20) and build a concise snapshot.\n5. For each session, compute a safe filename key by replacing every character not in [A-Za-z0-9._] with '_' and write:\n   memory/working-context-<safeSessionKey>.md\n   Overwrite that file with this format:\n\n# Working Context\n_Snapshot: <current UTC timestamp>_\n_Session: <original sessionKey>_\n\n## Active Task\n<What's being worked on \u2014 1-2 sentences>\n\n## Current Status\n<Bullets>\n\n## Next Steps\n<Bullets>\n\n## Key Details\n<Specific values, error messages, file paths, branch names, decisions>\n\nKeep each file under 25 lines.\n\n6. Reply ANNOUNCE_SKIP."
+        "message": "You are a working-context snapshot agent. Your job is to persist context per session so one thread cannot overwrite another.\n\nSteps:\n\n1. Call sessions_list(activeMinutes=65) to find sessions with recent activity.\n2. Filter out sessions that are only cron runs (sessionKey starting with 'cron:') or have no meaningful user messages.\n3. If NO sessions have meaningful recent activity, reply ANNOUNCE_SKIP. Do NOT touch or delete existing working-context files.\n4. For each remaining session, call sessions_history(sessionKey=<key>, limit=20) and build a concise snapshot.\n5. For each session, compute a safe filename key by replacing every character not in [A-Za-z0-9._] with '_' and write:\n   memory/working-context-<safeSessionKey>.md\n   Overwrite that file with this format:\n\n# Working Context\n_Snapshot: <current UTC timestamp>_\n_Session: <original sessionKey>_\n\n## Active Task\n<What's being worked on — 1-2 sentences>\n\n## Current Status\n<Bullets>\n\n## Next Steps\n<Bullets>\n\n## Key Details\n<Specific values, error messages, file paths, branch names, decisions>\n\nKeep each file under 25 lines.\n\n6. Reply ANNOUNCE_SKIP."
       },
       "sessionTarget": "isolated",
       "delivery": {
         "mode": "none"
       },
-      "wakeMode": "next-heartbeat"
+      "wakeMode": "next-heartbeat",
+      "state": {
+        "nextRunAtMs": 1773019822246,
+        "lastRunAtMs": 1773018022246,
+        "lastRunStatus": "ok",
+        "lastStatus": "ok",
+        "lastDurationMs": 4487,
+        "lastDelivered": false,
+        "lastDeliveryStatus": "not-delivered",
+        "consecutiveErrors": 0
+      },
+      "updatedAtMs": 1773018026733
     }
   ]
 }
