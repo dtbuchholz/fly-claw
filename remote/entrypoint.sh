@@ -11,6 +11,19 @@ GH_TOKEN_EFFECTIVE="${GITHUB_TOKEN:-${GH_TOKEN:-}}"
 # --- 1. Create persistent dirs ---
 mkdir -p /data/.openclaw/workspace /data/.openclaw/extensions /data/.claude /data/.codex /data/.cache /data/logs
 
+# --- 1.4. Fix QMD binary wrapper ---
+# QMD 2.0's bin script resolves DIR via symlink parent (/usr/bin/.. = /usr),
+# not the package directory. Fix by writing a direct wrapper.
+QMD_PKG="/usr/lib/node_modules/@tobilu/qmd"
+if [ -d "$QMD_PKG/dist/cli" ]; then
+    cat > /usr/bin/qmd << QMDEOF
+#!/bin/sh
+exec node "$QMD_PKG/dist/cli/qmd.js" "\$@"
+QMDEOF
+    chmod +x /usr/bin/qmd
+    echo "✓ QMD binary wrapper fixed"
+fi
+
 # --- 1.5. Persist node-llama-cpp builds across deploys ---
 # Without this, QMD recompiles llama.cpp on every deploy (~minutes on shared CPUs).
 LLAMA_CPP_DIR="/usr/lib/node_modules/@tobilu/qmd/node_modules/node-llama-cpp"
