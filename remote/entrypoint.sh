@@ -11,17 +11,24 @@ GH_TOKEN_EFFECTIVE="${GITHUB_TOKEN:-${GH_TOKEN:-}}"
 # --- 1. Create persistent dirs ---
 mkdir -p /data/.openclaw/workspace /data/.openclaw/extensions /data/.claude /data/.codex /data/.cache /data/logs
 
-# --- 1.4. Fix QMD binary wrapper ---
-# QMD 2.0's bin script resolves DIR via symlink parent (/usr/bin/.. = /usr),
-# not the package directory. Fix by writing a direct wrapper.
+# --- 1.4. Fix QMD binary path ---
+# QMD 2.0's npm bin script can fail to resolve its package directory when
+# invoked through /usr/bin symlinks (resolves /usr/bin/.. = /usr instead of
+# the package root). Write a direct wrapper that bypasses the resolution.
+# Also handles future installs where the bin script might change.
 QMD_PKG="/usr/lib/node_modules/@tobilu/qmd"
 if [ -d "$QMD_PKG/dist/cli" ]; then
-    cat > /usr/bin/qmd << QMDEOF
+    # Verify qmd works as-is; only patch if broken
+    if ! qmd --version >/dev/null 2>&1; then
+        cat > /usr/bin/qmd << QMDEOF
 #!/bin/sh
 exec node "$QMD_PKG/dist/cli/qmd.js" "\$@"
 QMDEOF
-    chmod +x /usr/bin/qmd
-    echo "✓ QMD binary wrapper fixed"
+        chmod +x /usr/bin/qmd
+        echo "✓ QMD binary wrapper patched (symlink resolution fix)"
+    else
+        echo "✓ QMD binary working ($(qmd --version 2>/dev/null))"
+    fi
 fi
 
 # --- 1.5. Persist node-llama-cpp builds across deploys ---
