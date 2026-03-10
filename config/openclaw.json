@@ -1,7 +1,7 @@
 {
   "meta": {
-    "lastTouchedVersion": "2026.3.2",
-    "lastTouchedAt": "2026-03-08T23:24:23.739Z"
+    "lastTouchedVersion": "2026.3.7",
+    "lastTouchedAt": "2026-03-10T19:13:29.659Z"
   },
   "wizard": {
     "lastRunAt": "2026-02-27T00:42:20.330Z",
@@ -167,6 +167,16 @@
       "mode": "idle",
       "idleMinutes": 180
     },
+    "resetByType": {
+      "group": {
+        "mode": "daily",
+        "atHour": 9
+      },
+      "thread": {
+        "mode": "daily",
+        "atHour": 9
+      }
+    },
     "maintenance": {
       "mode": "enforce",
       "pruneAfter": "30d",
@@ -260,7 +270,7 @@
       },
       "limits": {
         "maxResults": 8,
-        "timeoutMs": 5000
+        "timeoutMs": 10000
       }
     }
   },

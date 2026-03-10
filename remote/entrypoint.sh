@@ -522,10 +522,14 @@ fi
 # Generates embeddings so the first memory_search isn't slow.
 # GGUF models + compiled binaries persist in /data/.cache via the ~/.cache symlink.
 # Delayed to let the gateway create collections first.
+# IMPORTANT: Must use OpenClaw's agent-specific XDG dirs, not the default user dirs.
 echo "Scheduling QMD embedding warm-up..."
 (
     sleep 30
-    su - agent -c 'source /data/.env.secrets && qmd embed' \
+    su - agent -c 'source /data/.env.secrets && \
+        export XDG_CONFIG_HOME="/data/.openclaw/agents/main/qmd/xdg-config" && \
+        export XDG_CACHE_HOME="/data/.openclaw/agents/main/qmd/xdg-cache" && \
+        qmd embed' \
         >>/data/logs/qmd-warmup.log 2>&1 || true
 ) &
 
