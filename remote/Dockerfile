@@ -56,14 +56,9 @@ RUN curl -fsSL https://pkgs.tailscale.com/stable/debian/bookworm.noarmor.gpg \
 ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
 ENV CHROMIUM_PATH=/usr/bin/chromium
 
-# Bun (required by QMD memory backend at runtime)
-RUN curl -fsSL https://bun.sh/install | bash \
-    && cp /root/.bun/bin/bun /usr/local/bin/bun \
-    && cp /root/.bun/bin/bunx /usr/local/bin/bunx \
-    && rm -rf /root/.bun
-
 # OpenClaw + QMD memory backend
-# chmod: node-llama-cpp needs write access for CPU backend build at runtime (runs as agent user)
+# NODE_LLAMA_CPP_GPU=false: Fly VMs have no GPU; forces CPU backend for node-llama-cpp.
+# chmod: node-llama-cpp needs write access for CPU backend build at runtime (runs as agent user).
 # CACHEBUST forces Docker to re-run npm install when a new version is desired.
 # Set via: flyctl deploy --build-arg CACHEBUST=$(date +%s)
 # Or in CI: --build-arg CACHEBUST=${{ github.sha }}
@@ -72,6 +67,7 @@ ENV NODE_LLAMA_CPP_GPU=false
 WORKDIR /tmp
 RUN npm install -g openclaw@latest @tobilu/qmd@latest \
     && chmod -R a+w /usr/lib/node_modules/@tobilu/qmd/node_modules/node-llama-cpp/ \
+    && echo "QMD $(qmd --version 2>/dev/null || echo 'version unknown') installed" \
     && echo '{"backend":"qmd","qmd":{"command":"qmd","includeDefaultMemory":true}}' > /tmp/qmd-test.json \
     && mkdir -p qmd-warmup && echo "# test" > qmd-warmup/test.md \
     && if ! qmd update 2>&1; then \
