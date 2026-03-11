@@ -79,6 +79,11 @@ RUN npm install -g openclaw@latest @tobilu/qmd@latest \
     && echo "QMD precompile step completed (check warnings above for fallback-to-runtime cases)"
 WORKDIR /
 
+# uv (Python version manager + package manager)
+# Installs uv system-wide; Python 3.12 is installed per-user at runtime (entrypoint)
+# since uv python installs go to ~/.local which needs the persistent volume.
+RUN curl -LsSf https://astral.sh/uv/install.sh | env UV_INSTALL_DIR=/usr/local/bin sh
+
 # ACP harnesses (Claude Code + Codex CLIs for agent coding sessions)
 RUN npm install -g @anthropic-ai/claude-code@latest @openai/codex@latest
 
