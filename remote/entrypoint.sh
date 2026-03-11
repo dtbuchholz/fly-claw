@@ -548,18 +548,22 @@ if [ -n "${STATE_REPO:-}" ]; then
     ) &
 fi
 
-# --- 13.7. Pre-warm QMD embeddings (background) ---
-# Generates embeddings so the first memory_search isn't slow.
-# GGUF models + compiled binaries persist in /data/.cache via the ~/.cache symlink.
+# --- 13.7. Pre-warm QMD (background) ---
+# 1. Run a dummy search to prime the SQLite page cache (cold start takes 10s+)
+# 2. Generate embeddings for any pending documents
 # Delayed to let the gateway create collections first.
 # IMPORTANT: Must use OpenClaw's agent-specific XDG dirs, not the default user dirs.
-echo "Scheduling QMD embedding warm-up..."
+QMD_XDG='export XDG_CONFIG_HOME="/data/.openclaw/agents/main/qmd/xdg-config" && export XDG_CACHE_HOME="/data/.openclaw/agents/main/qmd/xdg-cache"'
+echo "Scheduling QMD warm-up..."
 (
     sleep 30
-    su - agent -c 'source /data/.env.secrets && \
-        export XDG_CONFIG_HOME="/data/.openclaw/agents/main/qmd/xdg-config" && \
-        export XDG_CACHE_HOME="/data/.openclaw/agents/main/qmd/xdg-cache" && \
-        qmd embed' \
+    # Warm the search cache with a throwaway query
+    su - agent -c "source /data/.env.secrets && $QMD_XDG && \
+        qmd search 'warmup' --json -n 1 >/dev/null 2>&1" || true
+    echo "$(date -u +%FT%T) QMD search cache warmed" >>/data/logs/qmd-warmup.log
+    # Then run embeddings
+    su - agent -c "source /data/.env.secrets && $QMD_XDG && \
+        qmd embed" \
         >>/data/logs/qmd-warmup.log 2>&1 || true
 ) &
 
