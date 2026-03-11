@@ -52,6 +52,16 @@ if [ -d "$LLAMA_CPP_DIR" ]; then
     fi
 fi
 
+# --- 1.6. Install Python 3.12 via uv (if not already present) ---
+# uv stores managed Pythons in ~/.local, which is on the persistent volume via ~/.cache.
+# This runs as agent user since uv installs to user dirs.
+if command -v uv >/dev/null 2>&1; then
+    if ! su - agent -c 'python3.12 --version' >/dev/null 2>&1; then
+        su - agent -c 'uv python install 3.12' 2>&1 || echo "Warning: Python 3.12 install failed"
+    fi
+    echo "✓ Python: $(su - agent -c 'python3.12 --version 2>/dev/null || python3 --version')"
+fi
+
 # --- 2. Symlink persistent dirs into agent home ---
 ln -sfn /data/.openclaw /home/agent/.openclaw
 ln -sfn /data/.claude /home/agent/.claude
