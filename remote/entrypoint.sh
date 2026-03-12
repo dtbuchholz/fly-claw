@@ -343,8 +343,9 @@ CLAUDE_CONFIG_REPO="${CLAUDE_CONFIG_REPO:-https://github.com/dtbuchholz/claude-c
 _claude_url="$CLAUDE_CONFIG_REPO"
 [ -n "${GH_TOKEN:-}" ] && _claude_url="${_claude_url/https:\/\/github.com/https://x-access-token:${GH_TOKEN}@github.com}"
 if su - agent -c "git clone '${_claude_url}' /tmp/claude-seed" 2>&1; then
-    # Claude Code CLI config (~/.claude/)
-    [ -f /tmp/claude-seed/settings.json ] && [ ! -f /data/.claude/settings.json ] \
+    # Claude Code CLI config (~/.claude/) — always sync from repo to pick up
+    # upstream changes (permissions, MCP servers, settings, etc.)
+    [ -f /tmp/claude-seed/settings.json ] \
         && cp /tmp/claude-seed/settings.json /data/.claude/
     for _dir in hooks skills agents; do
         if [ -d "/tmp/claude-seed/$_dir" ]; then
@@ -374,8 +375,9 @@ CODEX_CONFIG_REPO="${CODEX_CONFIG_REPO:-https://github.com/dtbuchholz/codex-conf
 _codex_url="$CODEX_CONFIG_REPO"
 [ -n "${GH_TOKEN:-}" ] && _codex_url="${_codex_url/https:\/\/github.com/https://x-access-token:${GH_TOKEN}@github.com}"
 if su - agent -c "git clone '${_codex_url}' /tmp/codex-seed" 2>&1; then
-    # Codex CLI config (~/.codex/)
-    [ -f /tmp/codex-seed/config.toml.template ] && [ ! -f /data/.codex/config.toml ] \
+    # Codex CLI config (~/.codex/) — always sync from template to pick up
+    # upstream changes (sandbox mode, model, features, etc.)
+    [ -f /tmp/codex-seed/config.toml.template ] \
         && cp /tmp/codex-seed/config.toml.template /data/.codex/config.toml
     for _dir in hooks skills agents policy; do
         if [ -d "/tmp/codex-seed/$_dir" ]; then
