@@ -95,10 +95,13 @@ RUN npm install -g @steipete/summarize@latest \
         -o /usr/local/bin/yt-dlp \
     && chmod +x /usr/local/bin/yt-dlp
 
-# Codex wrapper: unset OPENAI_API_KEY so Codex uses OAuth (from codex login --device-auth)
-# instead of the API key. OPENAI_API_KEY stays available for other processes (TTS, etc.).
+# Codex wrapper:
+# 1. Unset OPENAI_API_KEY so Codex uses OAuth (codex login --device-auth)
+# 2. --dangerously-bypass-approvals-and-sandbox: Fly's container runtime does not
+#    load Landlock LSM, causing Codex's built-in sandbox to panic on every command.
+#    The VM itself is the sandbox boundary.
 # IMPORTANT: exec /usr/bin/codex (npm symlink) so optional platform modules resolve correctly.
-RUN printf '#!/bin/bash\nunset OPENAI_API_KEY\nexec /usr/bin/codex "$@"\n' \
+RUN printf '#!/bin/bash\nunset OPENAI_API_KEY\nexec /usr/bin/codex --dangerously-bypass-approvals-and-sandbox "$@"\n' \
         > /usr/local/bin/codex \
     && chmod +x /usr/local/bin/codex
 
