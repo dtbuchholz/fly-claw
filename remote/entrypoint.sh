@@ -343,8 +343,9 @@ CLAUDE_CONFIG_REPO="${CLAUDE_CONFIG_REPO:-https://github.com/dtbuchholz/claude-c
 _claude_url="$CLAUDE_CONFIG_REPO"
 [ -n "${GH_TOKEN:-}" ] && _claude_url="${_claude_url/https:\/\/github.com/https://x-access-token:${GH_TOKEN}@github.com}"
 if su - agent -c "git clone '${_claude_url}' /tmp/claude-seed" 2>&1; then
-    # Claude Code CLI config (~/.claude/)
-    [ -f /tmp/claude-seed/settings.json ] && [ ! -f /data/.claude/settings.json ] \
+    # Claude Code CLI config (~/.claude/) — always sync from repo to pick up
+    # upstream changes (permissions, MCP servers, settings, etc.)
+    [ -f /tmp/claude-seed/settings.json ] \
         && cp /tmp/claude-seed/settings.json /data/.claude/
     for _dir in hooks skills agents; do
         if [ -d "/tmp/claude-seed/$_dir" ]; then
