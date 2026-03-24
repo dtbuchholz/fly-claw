@@ -149,19 +149,44 @@ jq --argjson max_concurrent "$MAX_CONCURRENT" '
 ' /data/.openclaw/openclaw.json > /data/.openclaw/openclaw.json.tmp \
     && mv /data/.openclaw/openclaw.json.tmp /data/.openclaw/openclaw.json
 
-# Select default models based on available credentials.
+# Select default model routing based on available credentials.
 DEFAULT_PRIMARY_MODEL="anthropic/claude-opus-4-6"
 DEFAULT_CRON_MODEL="anthropic/claude-sonnet-4-5"
-if [ -z "${CLAUDE_CODE_OAUTH_TOKEN:-}" ] && [ -z "${ANTHROPIC_API_KEY:-}" ] && [ -n "${OPENROUTER_API_KEY:-}" ]; then
-    DEFAULT_PRIMARY_MODEL="openrouter/openai/gpt-5.2-codex"
-    DEFAULT_CRON_MODEL="openrouter/openai/gpt-5.2-codex"
-    echo "No Anthropic credentials found; defaulting primary/cron model to $DEFAULT_PRIMARY_MODEL"
+DEFAULT_FALLBACK_MODELS_JSON='["openai/gpt-5.3-codex","openai/gpt-5.2-codex","openrouter/openai/gpt-5.2-codex","anthropic/claude-sonnet-4-5"]'
+
+if [ -z "${CLAUDE_CODE_OAUTH_TOKEN:-}" ] && [ -z "${ANTHROPIC_API_KEY:-}" ]; then
+    if [ -n "${OPENAI_API_KEY:-}" ]; then
+        DEFAULT_PRIMARY_MODEL="openai/gpt-5.3-codex"
+        DEFAULT_CRON_MODEL="openai/gpt-5.2-codex"
+        DEFAULT_FALLBACK_MODELS_JSON='["openai/gpt-5.2-codex","openrouter/openai/gpt-5.2-codex"]'
+        echo "No Anthropic credentials found; defaulting primary to OpenAI Codex with OpenRouter as secondary fallback."
+    elif [ -n "${OPENROUTER_API_KEY:-}" ]; then
+        DEFAULT_PRIMARY_MODEL="openrouter/openai/gpt-5.2-codex"
+        DEFAULT_CRON_MODEL="openrouter/openai/gpt-5.2-codex"
+        DEFAULT_FALLBACK_MODELS_JSON='[]'
+        echo "No Anthropic/OpenAI credentials found; defaulting primary/cron model to $DEFAULT_PRIMARY_MODEL"
+    else
+        DEFAULT_FALLBACK_MODELS_JSON='[]'
+        echo "Warning: no Anthropic/OpenAI/OpenRouter credentials found."
+    fi
+elif [ -z "${OPENAI_API_KEY:-}" ] && [ -z "${OPENROUTER_API_KEY:-}" ]; then
+    DEFAULT_FALLBACK_MODELS_JSON='["anthropic/claude-sonnet-4-5"]'
+elif [ -z "${OPENAI_API_KEY:-}" ]; then
+    DEFAULT_FALLBACK_MODELS_JSON='["openrouter/openai/gpt-5.2-codex","anthropic/claude-sonnet-4-5"]'
+elif [ -z "${OPENROUTER_API_KEY:-}" ]; then
+    DEFAULT_FALLBACK_MODELS_JSON='["openai/gpt-5.3-codex","openai/gpt-5.2-codex","anthropic/claude-sonnet-4-5"]'
 fi
 
-# Always: set primary model to match available credentials.
-jq --arg model "$DEFAULT_PRIMARY_MODEL" '.agents.defaults.model.primary = $model' \
-    /data/.openclaw/openclaw.json > /data/.openclaw/openclaw.json.tmp \
-    && mv /data/.openclaw/openclaw.json.tmp /data/.openclaw/openclaw.json
+_apply_model_routing_defaults() {
+    local target="$1"
+    jq --arg model "$DEFAULT_PRIMARY_MODEL" --argjson fallbacks "$DEFAULT_FALLBACK_MODELS_JSON" '
+        .agents.defaults.model.primary = $model |
+        .agents.defaults.model.fallbacks = $fallbacks
+    ' "$target" > "${target}.tmp" && mv "${target}.tmp" "$target"
+}
+
+# Always: enforce primary model + fallback ordering from credential policy.
+_apply_model_routing_defaults /data/.openclaw/openclaw.json
 
 # Patch agent-level settings (model aliases, context budget, compaction, session reset).
 # Only runs on explicit opt-in (FORCE_AGENT_CONFIG=1) or after state-repo restore,
@@ -170,7 +195,7 @@ _patch_agent_settings() {
     local target="$1"
     local seed="/opt/openclaw/openclaw.json"
     echo "Applying agent config patch..."
-    jq -s --arg model "$DEFAULT_PRIMARY_MODEL" --argjson max_concurrent "$MAX_CONCURRENT" '
+    jq -s --arg model "$DEFAULT_PRIMARY_MODEL" --argjson fallbacks "$DEFAULT_FALLBACK_MODELS_JSON" --argjson max_concurrent "$MAX_CONCURRENT" '
         .[0] as $live |
         .[1] as $seed |
         $live |
@@ -178,6 +203,7 @@ _patch_agent_settings() {
         .agents.defaults.model = ($seed.agents.defaults.model // .agents.defaults.model) |
         .agents.defaults.models = ($seed.agents.defaults.models // .agents.defaults.models) |
         .agents.defaults.model.primary = $model |
+        .agents.defaults.model.fallbacks = $fallbacks |
         .agents.defaults.maxConcurrent = $max_concurrent |
         (if $seed.agents.defaults.contextTokens != null
             then .agents.defaults.contextTokens = $seed.agents.defaults.contextTokens
@@ -433,11 +459,9 @@ if [ -n "${STATE_REPO:-}" ] && [ ! -f /data/.openclaw/workspace/MEMORY.md ]; the
 fi
 
 # Re-apply agent settings after state-repo restore (restored state may have stale config).
-# Also re-apply model.primary since restore overwrites it.
+# Also re-apply model routing since restore may overwrite defaults.
 if [ "$_state_restored" -eq 1 ]; then
-    jq --arg model "$DEFAULT_PRIMARY_MODEL" '.agents.defaults.model.primary = $model' \
-        /data/.openclaw/openclaw.json > /data/.openclaw/openclaw.json.tmp \
-        && mv /data/.openclaw/openclaw.json.tmp /data/.openclaw/openclaw.json
+    _apply_model_routing_defaults /data/.openclaw/openclaw.json
     _patch_agent_settings /data/.openclaw/openclaw.json
     # Apply cron sync policy after state restore (restored cron may be stale).
     _sync_cron_jobs /data/.openclaw/cron/jobs.json /opt/openclaw/cron/jobs.json "${CRON_SYNC_MODE:-models-only}" "$DEFAULT_CRON_MODEL"
@@ -523,6 +547,10 @@ if [ -n "${OPENROUTER_API_KEY:-}" ]; then
     su - agent -c 'source /data/.env.secrets && openclaw onboard --non-interactive --accept-risk --skip-ui --skip-daemon --skip-health --skip-channels --skip-search --skip-skills --auth-choice apiKey --token-provider openrouter --token "$OPENROUTER_API_KEY"' \
         2>&1 || true
 fi
+
+# Onboarding can mutate model defaults (OpenRouter onboarding sets openrouter/auto).
+# Re-apply model routing policy so Anthropic/OpenAI remain primary when configured.
+_apply_model_routing_defaults /data/.openclaw/openclaw.json
 
 # --- 13. Start Chromium for browser automation (headless, background) ---
 echo "Starting Chromium (headless)..."

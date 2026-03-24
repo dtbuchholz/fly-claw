@@ -41,15 +41,15 @@ Secrets live in `.env` (gitignored). They are passed to the sandbox via environm
 
 ## API Provider
 
-Anthropic subscription is the primary provider. OpenRouter is kept as secondary for non-Anthropic models (GPT, Gemini, etc.). Set credentials in `.env`:
+Anthropic subscription is the primary provider. OpenAI is the first fallback for Codex models, and OpenRouter is tertiary backup. Set credentials in `.env`:
 
 - **Anthropic subscription (recommended)**: `CLAUDE_CODE_OAUTH_TOKEN=sk-ant-oat-...` — generate with `claude setup-token`. Reuses your Pro/Max plan instead of per-token billing. Model IDs use `anthropic/` prefix (e.g. `anthropic/claude-opus-4-6`). Caveats: no prompt caching, no extended context (200K max), no cost tracking in OpenRouter dashboard.
 - **Direct Anthropic API key**: `ANTHROPIC_API_KEY=sk-ant-...` — same `anthropic/` prefix model IDs. Standard per-token billing with prompt caching and full context support.
-- **OpenRouter (secondary)**: `OPENROUTER_API_KEY=sk-or-...` — for non-Anthropic models only. Model IDs use `openrouter/` prefix (e.g. `openrouter/openai/gpt-5.2-codex`).
+- **OpenRouter (tertiary/backup)**: `OPENROUTER_API_KEY=sk-or-...` — used as backup and for non-Anthropic models not available directly via OpenAI/Anthropic. Model IDs use `openrouter/` prefix (e.g. `openrouter/openai/gpt-5.2-codex`).
 
-Auth priority: setup-token > Anthropic API key > OpenRouter. If setup-token onboarding fails and `ANTHROPIC_API_KEY` is present, the scripts automatically fall back to the API key path. Both Anthropic and OpenRouter can be registered simultaneously (the gateway routes based on model prefix). The model is configured in `config/openclaw.json` at `agents.defaults.model.primary`.
+Auth priority: setup-token > Anthropic API key > OpenAI API key > OpenRouter. If setup-token onboarding fails and `ANTHROPIC_API_KEY` is present, the scripts automatically fall back to the API key path. The startup policy enforces model routing after onboarding so OpenRouter onboarding cannot reset the default to `openrouter/auto`. The model is configured in `config/openclaw.json` at `agents.defaults.model.primary`.
 
-If only `OPENROUTER_API_KEY` is set (no Anthropic credentials), startup scripts override the default primary model to `openrouter/openai/gpt-5.2-codex` to avoid booting with an unauthenticated Anthropic default.
+If Anthropic credentials are missing but `OPENAI_API_KEY` is present, startup scripts use `openai/gpt-5.3-codex` as primary. If both Anthropic and OpenAI credentials are missing, they fall back to `openrouter/openai/gpt-5.2-codex`.
 
 ## Context Management
 
@@ -182,7 +182,7 @@ Fresh deployments are seeded with 5 default cron jobs. These run inside the Open
 
 **Config:** `config/cron/jobs.json` — uses OpenClaw's native format (`{"version":1,"jobs":[...]}`). Each job has a pre-generated UUID that the gateway preserves.
 
-**Model override:** Jobs default to `anthropic/claude-sonnet-4-5`. Set `CRON_MODEL` as a Fly secret to use a different model (e.g. `CRON_MODEL=anthropic/claude-opus-4-6`). If only OpenRouter credentials are present, the entrypoint defaults cron to `openrouter/openai/gpt-5.2-codex` unless `CRON_MODEL` is explicitly set. `CRON_MODEL` replaces the default Sonnet model in seeded jobs; jobs that specify a different model (e.g. Haiku) are kept as-is. The entrypoint substitutes this at seed time via `jq`.
+**Model override:** Jobs default to `anthropic/claude-sonnet-4-5`. Set `CRON_MODEL` as a Fly secret to use a different model (e.g. `CRON_MODEL=anthropic/claude-opus-4-6`). If Anthropic credentials are missing and OpenAI is present, the entrypoint defaults cron to `openai/gpt-5.2-codex`; if both are missing, it uses `openrouter/openai/gpt-5.2-codex` (unless `CRON_MODEL` is explicitly set). `CRON_MODEL` replaces the default Sonnet model in seeded jobs; jobs that specify a different model (e.g. Haiku) are kept as-is. The entrypoint substitutes this at seed time via `jq`.
 
 **Seeding behavior:**
 

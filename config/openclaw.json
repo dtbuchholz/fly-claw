@@ -36,7 +36,12 @@
     "defaults": {
       "model": {
         "primary": "anthropic/claude-opus-4-6",
-        "fallbacks": ["openai/gpt-5.3-codex", "openai/gpt-5.2-codex", "anthropic/claude-sonnet-4-5"]
+        "fallbacks": [
+          "openai/gpt-5.3-codex",
+          "openai/gpt-5.2-codex",
+          "openrouter/openai/gpt-5.2-codex",
+          "anthropic/claude-sonnet-4-5"
+        ]
       },
       "models": {
         "anthropic/claude-sonnet-4-5": {
@@ -65,6 +70,9 @@
         },
         "openai/gpt-5.2-codex": {
           "alias": "Codex-5.2"
+        },
+        "openrouter/openai/gpt-5.2-codex": {
+          "alias": "Codex-OR-5.2"
         }
       },
       "contextTokens": 200000,
