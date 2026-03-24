@@ -20,6 +20,7 @@
 - **Node:** 22
 
 ### What fits in these resources
+
 - QMD memory search (3 GGUF models ~2GB) — ✅ fits now
 - JS monorepo builds (Next.js, Turborepo) — ✅
 - Light ML inference (CLIP, MobileNet) — ✅

@@ -87,6 +87,10 @@ RUN curl -LsSf https://astral.sh/uv/install.sh | env UV_INSTALL_DIR=/usr/local/b
 # ACP harnesses (Claude Code + Codex CLIs for agent coding sessions)
 RUN npm install -g @anthropic-ai/claude-code@latest @openai/codex@latest
 
+# Additional harnesses
+# Pi is a lightweight coding-agent CLI we use as a baseline harness for model comparisons.
+RUN npm install -g @mariozechner/pi-coding-agent@latest
+
 # Media summarization CLI + dependencies (ffmpeg for transcoding, yt-dlp for YouTube)
 RUN npm install -g @steipete/summarize@latest \
     && apt-get update && apt-get install -y --no-install-recommends ffmpeg \

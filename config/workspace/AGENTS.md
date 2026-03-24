@@ -25,16 +25,20 @@ If **no channel-brief exists** for the current session and the user describes wh
 # Channel Brief
 
 ## Focus
+
 One-liner on what this channel is about.
 
 ## Scope
+
 - What's in bounds for this channel
 - What's out of bounds (goes elsewhere)
 
 ## Repos
+
 - `owner/repo` — brief description
 
 ## Key Context
+
 Permanent decisions, constraints, or background that should always
 be in-frame. Not current state (that's working-context), but things
 that rarely change.
