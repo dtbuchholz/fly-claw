@@ -14,6 +14,7 @@ On every new session, before greeting the user:
 2. If `rawSessionKey` is available, build `safeSessionKey` by replacing every character not in `[A-Za-z0-9._]` with `_` (including hyphens/minus signs).
 3. Build ordered key candidates:
    - `<safeSessionKey>` (canonical, only when available)
+   - `<safeSessionKey>` with leading `agent_main_` removed (legacy alias, only when canonical starts with that prefix)
    - `telegram_<sender_id>` (legacy DM alias, only for Telegram DM sessions)
 4. For each candidate key, try both files:
    - `memory/channel-brief-<candidate>.md`
