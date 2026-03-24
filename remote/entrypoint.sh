@@ -67,6 +67,11 @@ ln -sfn /data/.openclaw /home/agent/.openclaw
 ln -sfn /data/.claude /home/agent/.claude
 ln -sfn /data/.codex /home/agent/.codex
 ln -sfn /data/.cache /home/agent/.cache
+# Persist Claude Code auth file across redeploys.
+if [ -f /home/agent/.claude.json ] && [ ! -L /home/agent/.claude.json ] && [ ! -f /data/.claude/.claude.json ]; then
+    mv /home/agent/.claude.json /data/.claude/.claude.json
+fi
+ln -sfn /data/.claude/.claude.json /home/agent/.claude.json
 
 # --- 3. Write secrets to file (sourced by agent user) ---
 cat > /data/.env.secrets <<EOF
