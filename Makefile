@@ -1,5 +1,6 @@
 .PHONY: build up down status logs shell reset restart onboard network-setup help \
        fly-init deploy deploy-force deploy-cron-upsert deploy-force-cron-upsert fly-logs fly-status fly-console fly-auth \
+       fly-codex-auth-reset \
        format format-check lint lint-shell lint-docker setup
 
 SANDBOX_NAME ?= clawd
@@ -43,6 +44,7 @@ help:
 	@echo "  make fly-status           Check remote VM status"
 	@echo "  make fly-console          SSH into remote VM"
 	@echo "  make fly-auth             Set up OAuth for ACP harnesses"
+	@echo "  make fly-codex-auth-reset Remove Codex API-key auth profile on VM (forces OAuth re-login)"
 
 build:
 	@echo "Building sandbox template..."
@@ -191,3 +193,7 @@ fly-console:
 fly-auth:
 	@test -n "$(FLY_APP)" || (echo "Error: fly.toml not found. Run: make fly-init APP=<name>" && false)
 	@./remote/acp-auth.sh $(FLY_APP)
+
+fly-codex-auth-reset:
+	@test -n "$(FLY_APP)" || (echo "Error: fly.toml not found. Run: make fly-init APP=<name>" && false)
+	@./remote/codex-auth-reset.sh $(FLY_APP)

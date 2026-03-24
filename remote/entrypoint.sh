@@ -101,7 +101,7 @@ while IFS='=' read -r key _; do
         PATH|HOME|HOSTNAME|SHELL|USER|PWD|OLDPWD|SHLVL|TERM|LANG|LC_*|_) continue ;;
         DEBIAN_FRONTEND|PUPPETEER_*|CHROMIUM_*|NODE_OPTIONS) continue ;;
         FLY_*|PRIMARY_REGION|LOG_LEVEL) continue ;;
-        TAILSCALE_AUTHKEY|TELEGRAM_ALLOWED_IDS|TELEGRAM_GROUP_IDS|CRON_MODEL|CRON_SYNC_MODE|FORCE_AGENT_CONFIG) continue ;;
+        TAILSCALE_AUTHKEY|TELEGRAM_ALLOWED_IDS|TELEGRAM_GROUP_IDS|CRON_MODEL|CRON_SYNC_MODE|FORCE_AGENT_CONFIG|CODEX_AUTH_ENFORCEMENT) continue ;;
     esac
     _extra_secrets+="$(printf 'export %s="%s"\n' "$key" "${!key}")"$'\n'
 done < <(env)
@@ -425,6 +425,41 @@ if su - agent -c "git clone '${_codex_url}' /tmp/codex-seed" 2>&1; then
     echo "✓ Codex config synced"
 fi
 rm -rf /tmp/codex-seed
+
+# --- 6e. Enforce Codex OAuth mode (prevent accidental API-key billing) ---
+CODEX_AUTH_ENFORCEMENT="${CODEX_AUTH_ENFORCEMENT:-strip-apikey}"
+CODEX_AUTH_FILE="/data/.codex/auth.json"
+if [ -f "$CODEX_AUTH_FILE" ]; then
+    CODEX_AUTH_MODE="$(jq -r '.auth_mode // .authMode // empty' "$CODEX_AUTH_FILE" 2>/dev/null || true)"
+    if [ "$CODEX_AUTH_MODE" = "apikey" ]; then
+        case "$CODEX_AUTH_ENFORCEMENT" in
+            off)
+                echo "Warning: Codex auth_mode is apikey (enforcement=off)."
+                ;;
+            warn)
+                echo "Warning: Codex auth_mode is apikey. Run 'make fly-auth' to switch to OAuth."
+                ;;
+            fail)
+                echo "ERROR: Codex auth_mode is apikey and CODEX_AUTH_ENFORCEMENT=fail."
+                echo "Run 'make fly-auth' to re-auth Codex with device OAuth."
+                exit 1
+                ;;
+            strip-apikey)
+                CODEX_AUTH_BACKUP="/data/.codex/auth.apikey.$(date -u +%Y%m%dT%H%M%SZ).json"
+                cp "$CODEX_AUTH_FILE" "$CODEX_AUTH_BACKUP"
+                chmod 600 "$CODEX_AUTH_BACKUP"
+                chown agent:agent "$CODEX_AUTH_BACKUP" || true
+                rm -f "$CODEX_AUTH_FILE"
+                echo "Removed Codex apikey auth profile (backup: $CODEX_AUTH_BACKUP)."
+                echo "Run 'make fly-auth' to complete Codex OAuth device login."
+                ;;
+            *)
+                echo "Warning: unknown CODEX_AUTH_ENFORCEMENT='$CODEX_AUTH_ENFORCEMENT' (expected off|warn|fail|strip-apikey). Using warn."
+                echo "Warning: Codex auth_mode is apikey. Run 'make fly-auth' to switch to OAuth."
+                ;;
+        esac
+    fi
+fi
 
 # --- 7. Persist git + SSH config ---
 mkdir -p /data/.ssh /data/.gnupg /data/git

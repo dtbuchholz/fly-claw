@@ -229,6 +229,8 @@ allowed groups.
 | `make fly-logs`                 | Tail remote logs                                              |
 | `make fly-status`               | Check remote VM status                                        |
 | `make fly-console`              | SSH into remote VM                                            |
+| `make fly-auth`                 | Run interactive ACP OAuth setup (Claude + Codex)              |
+| `make fly-codex-auth-reset`     | Remove Codex API-key auth profile on VM (forces OAuth login)  |
 
 ## Repo Structure
 

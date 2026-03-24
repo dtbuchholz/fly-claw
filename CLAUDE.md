@@ -124,7 +124,7 @@ The image includes [Claude Code](https://www.npmjs.com/package/@anthropic-ai/cla
 **Auth:** Each CLI uses OAuth rather than raw API keys. Run `make fly-auth` to set up both:
 
 - **Claude Code** — `claude setup-token` generates a long-lived OAuth token (1 year). Set it as a Fly secret: `CLAUDE_CODE_OAUTH_TOKEN`. The CLI reads this from the environment automatically.
-- **Codex** — `codex login --device-auth` does a device code flow (headless-friendly). Credentials are stored in `~/.codex/auth.json` on the persistent volume, using ChatGPT OAuth with auto-refresh. A wrapper script at `/usr/local/bin/codex` unsets `OPENAI_API_KEY` before invoking the preserved binary (`/usr/local/bin/codex-real`) so the CLI uses OAuth instead of the API key. `OPENAI_API_KEY` remains available to other processes (TTS, etc.).
+- **Codex** — `codex login --device-auth` does a device code flow (headless-friendly). Credentials are stored in `~/.codex/auth.json` on the persistent volume, using ChatGPT OAuth with auto-refresh. A wrapper script at `/usr/local/bin/codex` unsets `OPENAI_API_KEY` before invoking `/usr/bin/codex` so the CLI uses OAuth instead of ambient API-key env vars. Startup also enforces non-API-key mode (`CODEX_AUTH_ENFORCEMENT`, default `strip-apikey`) by removing `auth_mode=apikey` profiles and requiring re-login via OAuth.
 
 **CLI config:** Each harness has its own config directory, persisted on `/data` and symlinked into the agent home:
 
@@ -242,6 +242,7 @@ make fly-logs             # Tail remote logs
 make fly-status           # Check remote VM status
 make fly-console          # SSH into remote VM
 make fly-auth             # Set up OAuth for ACP harnesses
+make fly-codex-auth-reset # Remove Codex API-key auth profile on VM and force OAuth re-login
 ```
 
 ## OpenClaw Docs
