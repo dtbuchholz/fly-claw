@@ -81,6 +81,7 @@ After significant work sessions (>30 min of investigation, multi-step problem so
 Write journal entries **during** deep work sessions, not only after completion. Sessions can reset (idle timeout, deploy, crash) and the conversation history is lost. The journal on the persistent volume survives.
 
 Rules of thumb:
+
 - After spawning sub-agents or completing a multi-step investigation, write a checkpoint journal entry immediately.
 - After opening issues, merging PRs, or making architectural decisions, journal the reasoning while it's fresh.
 - Don't wait for the session to end — by then the context may already be gone.
