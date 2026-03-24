@@ -75,3 +75,12 @@ You maintain a structured reasoning memory beyond basic facts. Before starting s
 - **Facts** (`memory/*.md`, `MEMORY.md`) — quick-reference facts, preferences, dates.
 
 After significant work sessions (>30 min of investigation, multi-step problem solving, or discovering something that contradicts a prior assumption), write a journal entry to `journal/YYYY-MM-DD_{topic}.md` using the format in `docs/REASONING_MEMORY_SPEC.md`.
+
+### Journal During Work, Not After
+
+Write journal entries **during** deep work sessions, not only after completion. Sessions can reset (idle timeout, deploy, crash) and the conversation history is lost. The journal on the persistent volume survives.
+
+Rules of thumb:
+- After spawning sub-agents or completing a multi-step investigation, write a checkpoint journal entry immediately.
+- After opening issues, merging PRs, or making architectural decisions, journal the reasoning while it's fresh.
+- Don't wait for the session to end — by then the context may already be gone.

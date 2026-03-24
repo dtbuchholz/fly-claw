@@ -626,6 +626,14 @@ if [ -n "${STATE_REPO:-}" ]; then
     ) &
 fi
 
+# --- 13.6. Archive conversations before gateway starts ---
+# Session files may be cleaned up after restart; archive digests to workspace now.
+ARCHIVE_SCRIPT="$STATE_DIR/workspace/scripts/archive-conversations.sh"
+if [ -f "$ARCHIVE_SCRIPT" ]; then
+    echo "Archiving conversations (pre-gateway)..."
+    su - agent -c "bash '$ARCHIVE_SCRIPT'" >>/data/logs/conversation-archive.log 2>&1 || true
+fi
+
 # --- 13.7. Pre-warm QMD (background) ---
 # 1. Run a dummy search to prime the SQLite page cache (cold start takes 10s+)
 # 2. Generate embeddings for any pending documents

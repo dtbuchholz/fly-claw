@@ -138,7 +138,7 @@
         "kind": "agentTurn",
         "model": "anthropic/claude-haiku-4-5",
         "timeoutSeconds": 90,
-        "message": "You are a working-context snapshot agent. Your job is to persist context per session so one thread cannot overwrite another.\n\nSteps:\n\n1. Call sessions_list(activeMinutes=65) to find sessions with recent activity.\n2. Filter out sessions that are only cron runs (sessionKey starting with 'cron:') or have no meaningful user messages.\n3. If NO sessions have meaningful recent activity, reply ANNOUNCE_SKIP. Do NOT touch or delete existing working-context files.\n4. For each remaining session, call sessions_history(sessionKey=<key>, limit=20) and build a concise snapshot.\n5. For each session:\n   - Compute canonical safeSessionKey by replacing every character not in [A-Za-z0-9._] with '_'.\n   - Write canonical file: memory/working-context-<safeSessionKey>.md\n   - If safeSessionKey starts with agent_main_, ALSO write legacy alias file with that prefix removed:\n     memory/working-context-<safeSessionKeyWithoutAgentMainPrefix>.md\n   - Both files must have identical content.\n\nUse this format:\n\n# Working Context\n_Snapshot: <current UTC timestamp>_\n_Session: <original sessionKey>_\n\n## Active Task\n<What's being worked on — 1-2 sentences>\n\n## Current Status\n<Bullets>\n\n## Next Steps\n<Bullets>\n\n## Key Details\n<Specific values, error messages, file paths, branch names, decisions>\n\nKeep each file under 25 lines.\n\n6. If snapshots were written, reply CONTEXT_SNAPSHOTS_WRITTEN. Otherwise reply ANNOUNCE_SKIP."
+        "message": "You are a working-context snapshot agent. Your job is to persist context per session so one thread cannot overwrite another.\n\nSteps:\n\n1. Call sessions_list(activeMinutes=65) to find sessions with recent activity.\n2. Filter out sessions that are only cron runs (sessionKey starting with 'cron:') or have no meaningful user messages.\n3. If NO sessions have meaningful recent activity, reply ANNOUNCE_SKIP. Do NOT touch or delete existing working-context files.\n4. For each remaining session, call sessions_history(sessionKey=<key>, limit=20) and build a concise snapshot.\n5. For each session:\n   - Compute canonical safeSessionKey by replacing every character not in [A-Za-z0-9._] with '_'.\n   - Read the EXISTING working-context file (if any) to preserve the Work Log section.\n   - Write canonical file: memory/working-context-<safeSessionKey>.md\n   - If safeSessionKey starts with agent_main_, ALSO write legacy alias file with that prefix removed:\n     memory/working-context-<safeSessionKeyWithoutAgentMainPrefix>.md\n   - Both files must have identical content.\n\nUse this format:\n\n# Working Context\n_Snapshot: <current UTC timestamp>_\n_Session: <original sessionKey>_\n\n## Active Task\n<What's being worked on — 1-2 sentences>\n\n## Current Status\n<Bullets>\n\n## Next Steps\n<Bullets>\n\n## Key Details\n<Specific values, error messages, file paths, branch names, decisions>\n\n## Work Log\n<Rolling log of completed work items — append-only, most recent first. Carry forward ALL existing entries from the previous snapshot's Work Log section. Add new entries for any completed work visible in the current session history. Each entry: `- [YYYY-MM-DD HH:MM] <brief description of what was done>`. Keep max 20 entries; drop oldest if over limit.>\n\nKeep Active Task / Status / Next Steps / Key Details under 20 lines total. Work Log can be up to 20 additional lines.\n\n6. If snapshots were written, reply CONTEXT_SNAPSHOTS_WRITTEN. Otherwise reply ANNOUNCE_SKIP."
       },
       "sessionTarget": "isolated",
       "delivery": {
@@ -156,6 +156,27 @@
         "consecutiveErrors": 0
       },
       "updatedAtMs": 1773268310658
+    },
+    {
+      "id": "a1b2c3d4-5555-4000-8000-000000000005",
+      "name": "conversation-archive",
+      "schedule": {
+        "kind": "cron",
+        "expr": "15 */6 * * *"
+      },
+      "enabled": true,
+      "payload": {
+        "kind": "agentTurn",
+        "message": "Run the conversation archive script to preserve conversation digests before session cleanup:\n\nbash /data/.openclaw/workspace/scripts/archive-conversations.sh\n\nThen trigger QMD reindex if available:\n\nif command -v qmd >/dev/null 2>&1; then qmd update && qmd embed; fi\n\nIf successful, reply with the archive counts. If nothing new, reply ANNOUNCE_SKIP.",
+        "model": "anthropic/claude-haiku-4-5",
+        "timeoutSeconds": 120
+      },
+      "wakeMode": "next-heartbeat",
+      "state": {},
+      "sessionTarget": "isolated",
+      "delivery": {
+        "mode": "none"
+      }
     }
   ]
 }
