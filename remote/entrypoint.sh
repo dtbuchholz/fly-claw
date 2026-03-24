@@ -168,23 +168,30 @@ jq --arg model "$DEFAULT_PRIMARY_MODEL" '.agents.defaults.model.primary = $model
 # so agent customizations made on the VM aren't overwritten on normal deploys.
 _patch_agent_settings() {
     local target="$1"
+    local seed="/opt/openclaw/openclaw.json"
     echo "Applying agent config patch..."
-    jq --arg model "$DEFAULT_PRIMARY_MODEL" --argjson max_concurrent "$MAX_CONCURRENT" '
+    jq -s --arg model "$DEFAULT_PRIMARY_MODEL" --argjson max_concurrent "$MAX_CONCURRENT" '
+        .[0] as $live |
+        .[1] as $seed |
+        $live |
+        # Keep force patch source-of-truth aligned with image config instead of hardcoded IDs.
+        .agents.defaults.model = ($seed.agents.defaults.model // .agents.defaults.model) |
+        .agents.defaults.models = ($seed.agents.defaults.models // .agents.defaults.models) |
         .agents.defaults.model.primary = $model |
         .agents.defaults.maxConcurrent = $max_concurrent |
-        .agents.defaults.models = {
-            "anthropic/claude-sonnet-4-5": { "alias": "Sonnet" },
-            "anthropic/claude-opus-4-6": { "alias": "Opus" },
-            "anthropic/claude-haiku-4-5": { "alias": "Haiku" },
-            "openrouter/openai/gpt-5.2-codex": { "alias": "Codex" }
-        } |
-        .agents.defaults.contextTokens = 200000 |
-        .agents.defaults.compaction.mode = "default" |
-        .agents.defaults.compaction.reserveTokensFloor = 30000 |
-        .agents.defaults.compaction.memoryFlush.enabled = true |
-        .agents.defaults.compaction.memoryFlush.softThresholdTokens = 4000 |
-        .session.reset = { "mode": "idle", "idleMinutes": 60 }
-    ' "$target" > "${target}.tmp" && mv "${target}.tmp" "$target"
+        (if $seed.agents.defaults.contextTokens != null
+            then .agents.defaults.contextTokens = $seed.agents.defaults.contextTokens
+            else .
+         end) |
+        (if $seed.agents.defaults.compaction != null
+            then .agents.defaults.compaction = $seed.agents.defaults.compaction
+            else .
+         end) |
+        (if $seed.session.reset != null
+            then .session.reset = $seed.session.reset
+            else .
+         end)
+    ' "$target" "$seed" > "${target}.tmp" && mv "${target}.tmp" "$target"
 }
 
 _patch_cron_models() {
@@ -494,7 +501,7 @@ echo "Registering API credentials..."
 anthropic_registered=0
 if [ -n "${CLAUDE_CODE_OAUTH_TOKEN:-}" ]; then
     # shellcheck disable=SC2016 # $CLAUDE_CODE_OAUTH_TOKEN expands inside su subshell via sourced .env.secrets
-    if su - agent -c 'source /data/.env.secrets && openclaw onboard --auth-choice setupToken --token-provider anthropic --token "$CLAUDE_CODE_OAUTH_TOKEN"' \
+    if su - agent -c 'source /data/.env.secrets && openclaw onboard --non-interactive --accept-risk --skip-ui --skip-daemon --skip-health --skip-channels --skip-search --skip-skills --auth-choice setupToken --token-provider anthropic --token "$CLAUDE_CODE_OAUTH_TOKEN"' \
         2>&1; then
         anthropic_registered=1
     else
@@ -503,7 +510,7 @@ if [ -n "${CLAUDE_CODE_OAUTH_TOKEN:-}" ]; then
 fi
 if [ "$anthropic_registered" -eq 0 ] && [ -n "${ANTHROPIC_API_KEY:-}" ]; then
     # shellcheck disable=SC2016 # $ANTHROPIC_API_KEY expands inside su subshell via sourced .env.secrets
-    if su - agent -c 'source /data/.env.secrets && openclaw onboard --auth-choice apiKey --token-provider anthropic --token "$ANTHROPIC_API_KEY"' \
+    if su - agent -c 'source /data/.env.secrets && openclaw onboard --non-interactive --accept-risk --skip-ui --skip-daemon --skip-health --skip-channels --skip-search --skip-skills --auth-choice apiKey --token-provider anthropic --token "$ANTHROPIC_API_KEY"' \
         2>&1; then
         anthropic_registered=1
     else
@@ -513,7 +520,7 @@ fi
 # Secondary: OpenRouter (always register if present, for non-Anthropic models)
 if [ -n "${OPENROUTER_API_KEY:-}" ]; then
     # shellcheck disable=SC2016 # $OPENROUTER_API_KEY expands inside su subshell via sourced .env.secrets
-    su - agent -c 'source /data/.env.secrets && openclaw onboard --auth-choice apiKey --token-provider openrouter --token "$OPENROUTER_API_KEY"' \
+    su - agent -c 'source /data/.env.secrets && openclaw onboard --non-interactive --accept-risk --skip-ui --skip-daemon --skip-health --skip-channels --skip-search --skip-skills --auth-choice apiKey --token-provider openrouter --token "$OPENROUTER_API_KEY"' \
         2>&1 || true
 fi
 
@@ -556,15 +563,30 @@ fi
 # Delayed to let the gateway create collections first.
 # IMPORTANT: Must use OpenClaw's agent-specific XDG dirs, not the default user dirs.
 QMD_XDG='export XDG_CONFIG_HOME="/data/.openclaw/agents/main/qmd/xdg-config" && export XDG_CACHE_HOME="/data/.openclaw/agents/main/qmd/xdg-cache"'
+QMD_WARMUP_TIMEOUT_SEC="${QMD_WARMUP_TIMEOUT_SEC:-900}"
+QMD_SEARCH_WARMUP_TIMEOUT_SEC="${QMD_SEARCH_WARMUP_TIMEOUT_SEC:-60}"
+QMD_WARMUP_LOCK="/data/.openclaw/state/qmd-warmup.lock"
 echo "Scheduling QMD warm-up..."
 (
     sleep 30
+    mkdir -p /data/.openclaw/state
+    if ! (set -o noclobber; echo "$$" >"$QMD_WARMUP_LOCK") 2>/dev/null; then
+        echo "$(date -u +%FT%T) QMD warm-up already running; skipping" >>/data/logs/qmd-warmup.log
+        exit 0
+    fi
+    trap 'rm -f "$QMD_WARMUP_LOCK"' EXIT
+
+    if pgrep -f "qmd\\.js embed" >/dev/null 2>&1; then
+        echo "$(date -u +%FT%T) QMD embed already active; skipping warm-up embed" >>/data/logs/qmd-warmup.log
+        exit 0
+    fi
+
     # Warm the search cache with a throwaway query
-    su - agent -c "source /data/.env.secrets && $QMD_XDG && \
+    timeout "$QMD_SEARCH_WARMUP_TIMEOUT_SEC" su - agent -c "source /data/.env.secrets && $QMD_XDG && \
         qmd search 'warmup' --json -n 1 >/dev/null 2>&1" || true
     echo "$(date -u +%FT%T) QMD search cache warmed" >>/data/logs/qmd-warmup.log
     # Then run embeddings
-    su - agent -c "source /data/.env.secrets && $QMD_XDG && \
+    timeout "$QMD_WARMUP_TIMEOUT_SEC" su - agent -c "source /data/.env.secrets && $QMD_XDG && \
         qmd embed" \
         >>/data/logs/qmd-warmup.log 2>&1 || true
 ) &
