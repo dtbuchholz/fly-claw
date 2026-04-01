@@ -473,6 +473,12 @@ ln -sfn /data/.ssh /home/agent/.ssh
 ln -sfn /data/git/config /home/agent/.gitconfig
 ln -sfn /data/.gnupg /home/agent/.gnupg
 
+# Ensure HTTPS → SSH rewrite for GitHub so ACP sub-agents (Codex, etc.)
+# can push without needing GH_TOKEN in their environment.
+if [ -s /data/.ssh/id_ed25519 ]; then
+    su - agent -c 'git config --global url."git@github.com:".insteadOf "https://github.com/"' 2>/dev/null || true
+fi
+
 # --- 8. Restore from state repo (fresh volume only) ---
 # If STATE_REPO is set and no MEMORY.md exists, this is likely a fresh volume.
 # Clone the state repo directly into /data/.openclaw — the same dir used for
