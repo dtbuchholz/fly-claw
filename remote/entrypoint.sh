@@ -210,6 +210,15 @@ _patch_agent_settings() {
         .agents.defaults.model.primary = $model |
         .agents.defaults.model.fallbacks = $fallbacks |
         .agents.defaults.maxConcurrent = $max_concurrent |
+        .agents.defaults.thinkingDefault = ($seed.agents.defaults.thinkingDefault // .agents.defaults.thinkingDefault) |
+        (if ($seed.agents.defaults.subagents.maxConcurrent != null)
+            then .agents.defaults.subagents.maxConcurrent = $seed.agents.defaults.subagents.maxConcurrent
+            else .
+         end) |
+        (if ($seed.agents.defaults.subagents.thinking != null)
+            then .agents.defaults.subagents.thinking = $seed.agents.defaults.subagents.thinking
+            else .
+         end) |
         (if $seed.agents.defaults.contextTokens != null
             then .agents.defaults.contextTokens = $seed.agents.defaults.contextTokens
             else .

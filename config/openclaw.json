@@ -75,6 +75,7 @@
           "alias": "Codex-OR-5.2"
         }
       },
+      "thinkingDefault": "adaptive",
       "contextTokens": 200000,
       "memorySearch": {
         "extraPaths": ["journal", "patterns", "docs", "research"],
@@ -126,7 +127,8 @@
       "maxConcurrent": 4,
       "subagents": {
         "maxConcurrent": 8,
-        "runTimeoutSeconds": 3600
+        "runTimeoutSeconds": 3600,
+        "thinking": "high"
       },
       "sandbox": {
         "mode": "off"

@@ -56,6 +56,8 @@ If Anthropic credentials are missing but `OPENAI_API_KEY` is present, startup sc
 Prevents token explosion in long-running Telegram threads. Configured in `config/openclaw.json` under `agents.defaults`:
 
 - **`maxConcurrent: 4`** — allows up to 4 parallel agent runs (cron, Telegram, ACP); default is 1
+- **`thinkingDefault: "adaptive"`** — keeps routine chat fast but allows the runtime to use more reasoning on harder turns
+- **`subagents.thinking: "high"`** — delegated/background agents use a heavier thinking level by default
 - **`contextTokens: 200000`** — hard budget; the gateway compacts when approaching this limit
 - **`compaction.reserveTokensFloor: 30000`** — keeps 30K tokens free for the next response
 - **`compaction.memoryFlush`** — flushes compacted context to QMD memory before discarding
