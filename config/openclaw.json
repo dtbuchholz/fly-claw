@@ -97,8 +97,8 @@
       },
       "contextPruning": {
         "mode": "cache-ttl",
-        "ttl": "5m",
-        "keepLastAssistants": 3,
+        "ttl": "36h",
+        "keepLastAssistants": 8,
         "tools": {
           "allow": ["exec", "read", "web_fetch", "browser", "process"],
           "deny": ["memory_search", "memory_get"]
@@ -109,7 +109,7 @@
           "tailChars": 1500
         },
         "hardClear": {
-          "enabled": true,
+          "enabled": false,
           "placeholder": "[Old tool result cleared]"
         }
       },
@@ -169,9 +169,17 @@
   "session": {
     "reset": {
       "mode": "idle",
-      "idleMinutes": 180
+      "idleMinutes": 43200
     },
     "resetByType": {
+      "direct": {
+        "mode": "idle",
+        "idleMinutes": 43200
+      },
+      "dm": {
+        "mode": "idle",
+        "idleMinutes": 43200
+      },
       "group": {
         "mode": "daily",
         "atHour": 9
@@ -183,7 +191,7 @@
     },
     "maintenance": {
       "mode": "enforce",
-      "pruneAfter": "30d",
+      "pruneAfter": "365d",
       "maxEntries": 500,
       "maxDiskBytes": "2gb"
     }
