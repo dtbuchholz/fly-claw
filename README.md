@@ -6,9 +6,11 @@ Personal AI assistant powered by [OpenClaw](https://openclaw.ai). Runs locally i
 
 ## Prerequisites
 
-- Anthropic subscription token (recommended — run `claude setup-token`),
-  [Anthropic API key](https://console.anthropic.com/), or
+- ChatGPT/Codex subscription login for the recommended `openai-codex` path, or a
+  direct fallback provider key such as an
+  [Anthropic API key](https://console.anthropic.com/) or
   [OpenRouter API key](https://openrouter.ai/)
+- Optional [OpenAI API key](https://platform.openai.com/) for voice features only
 - [Telegram bot token](https://t.me/BotFather) (create via `/newbot`) — must be a **dedicated**
   token not used by any other running bot
 
@@ -22,7 +24,8 @@ Sandbox support)
 ```bash
 # 1. Configure secrets
 cp .env.example .env
-# Edit .env — set CLAUDE_CODE_OAUTH_TOKEN (or ANTHROPIC_API_KEY / OPENROUTER_API_KEY) and TELEGRAM_BOT_TOKEN
+# Edit .env — set ANTHROPIC_API_KEY or OPENROUTER_API_KEY, plus TELEGRAM_BOT_TOKEN
+# Optional: set OPENAI_API_KEY only if you want TTS/STT voice features
 # Set TELEGRAM_ALLOWED_IDS to your Telegram user ID (find it via @userinfobot)
 
 # 2. Build template + create sandbox + start gateway
@@ -40,16 +43,18 @@ make fly-init APP=my-clawd
 # 2. Create the app + set secrets
 fly apps create my-clawd
 fly secrets set \
-    CLAUDE_CODE_OAUTH_TOKEN='sk-ant-oat-...' \
     TELEGRAM_BOT_TOKEN='123456:ABC-DEF...' \
     OPENCLAW_GATEWAY_TOKEN="$(openssl rand -hex 16)" \
     TELEGRAM_ALLOWED_IDS='12345678' \
     -a my-clawd
-# Optional: add OpenRouter for non-Anthropic models (GPT, Gemini, etc.)
-# fly secrets set OPENROUTER_API_KEY='sk-or-...' -a my-clawd
+# Optional: add ANTHROPIC_API_KEY / OPENROUTER_API_KEY for model fallbacks
+# Optional: add OPENAI_API_KEY for voice features only
 
 # 3. Deploy
 make deploy
+
+# 4. Set up Codex OAuth on the VM (recommended primary path)
+make fly-auth
 ```
 
 After editing config or workspace files, redeploy with `make deploy`.
@@ -157,12 +162,49 @@ agent-state/
 
 ### Model
 
-Set in `config/openclaw.json` at `agents.defaults.model.primary`. Anthropic models use the
-`anthropic/` prefix (e.g. `anthropic/claude-opus-4-6`). Non-Anthropic models routed through
-OpenRouter use the `openrouter/` prefix (e.g. `openrouter/openai/gpt-5.2-codex`). Run `make reset`
+Set in `config/openclaw.json` at `agents.defaults.model.primary`. The repo now defaults to
+`openai-codex/gpt-5.4`, which uses ChatGPT/Codex OAuth through OpenClaw's native `openai-codex`
+provider. Anthropic API models use `anthropic/`, Claude CLI models use `claude-cli/`, and
+OpenRouter models use `openrouter/`. This repo does not use `OPENAI_API_KEY` for model routing.
+Run `make reset`
 (local) or `make deploy` (remote) to apply.
 
 List available models: `make shell` then `openclaw models list --all`.
+
+### Cron Model Overrides
+
+Repo-managed cron jobs use the normal cron model by default, and the `working-context-snapshot`
+job can use a separate lightweight model when configured.
+
+- `CRON_MODEL` overrides the standard cron model for all repo-managed cron jobs
+- `CRON_LIGHT_MODEL` overrides only the lightweight cron lane, currently the
+  `working-context-snapshot` job
+
+Example:
+
+```bash
+fly secrets set \
+  CRON_MODEL='openai-codex/gpt-5.4' \
+  CRON_LIGHT_MODEL='openai-codex/gpt-5.3-codex-spark' \
+  -a my-clawd
+make deploy-cron-upsert
+```
+
+`CRON_LIGHT_MODEL` is optional. If unset, the lightweight lane falls back to `CRON_MODEL`.
+This is intentional because Codex Spark is entitlement-dependent.
+
+### Codex OAuth Setup
+
+On current OpenClaw builds, the reliable manual import path is:
+
+```bash
+codex login --device-auth
+openclaw onboard --auth-choice openai-codex
+```
+
+This reuses `~/.codex/auth.json` and writes the OpenClaw-side auth profile. The repo does not try
+to run this automatically at boot because upstream now requires an interactive TTY for provider
+registration/import flows.
 
 ### TTS
 
@@ -229,7 +271,7 @@ allowed groups.
 | `make fly-logs`                 | Tail remote logs                                              |
 | `make fly-status`               | Check remote VM status                                        |
 | `make fly-console`              | SSH into remote VM                                            |
-| `make fly-auth`                 | Run interactive ACP OAuth setup (Claude + Codex)              |
+| `make fly-auth`                 | Run interactive gateway + ACP OAuth setup (Codex primary)     |
 | `make fly-codex-auth-reset`     | Remove Codex API-key auth profile on VM (forces OAuth login)  |
 
 ## Repo Structure
