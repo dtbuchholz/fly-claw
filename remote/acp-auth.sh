@@ -15,11 +15,11 @@ if [ -z "$FLY_APP" ]; then
     exit 1
 fi
 
-echo "=== ACP OAuth Setup ==="
+echo "=== Gateway OAuth Setup ==="
 echo "App: $FLY_APP"
 echo ""
-echo "This sets up OAuth for Claude Code + Codex ACP harnesses."
-echo "Tokens persist on the /data volume across redeploys."
+echo "This sets up gateway + ACP auth for Codex, plus optional Claude CLI fallback."
+echo "Credentials persist on the /data volume across redeploys."
 echo ""
 
 cat <<'EOF'
@@ -27,27 +27,27 @@ Opening interactive SSH session as the agent user.
 Run these commands:
 ──────────────────────────────────────────────────────
 
-  # 1. Claude Code (Anthropic) — setup-token flow
-  #    Prints a URL → open in browser → copy the token.
-  #    Token must be set as a Fly secret afterward (see below).
-  claude setup-token
-
-  # 2. Codex (OpenAI) — device auth flow
+  # 1. Codex (OpenAI) — device auth flow
   #    Prints a URL + code. Open URL in browser, enter the code.
   #    Credentials are stored in ~/.codex/auth.json automatically.
   codex login --device-auth
 
-  # 3. Verify
-  claude auth status
+  # 2. Import that Codex OAuth login into OpenClaw.
+  #    This is the supported interactive path for current upstream builds.
+  openclaw onboard --auth-choice openai-codex
+
+  # 3. Optional: register Claude CLI as a fallback provider.
+  claude auth login
+  openclaw onboard --auth-choice anthropic-cli
+
+  # 4. Verify
   codex login status
+  jq '.profiles | keys' ~/.openclaw/agents/main/agent/auth-profiles.json
+  jq '{currentModel, defaultModel, providers: (.providers | keys?)}' ~/.openclaw/agents/main/agent/models.json
 
   exit
 
 ──────────────────────────────────────────────────────
-
-NOTE: After exiting, set the Claude token as a Fly secret:
-
-  fly secrets set CLAUDE_CODE_OAUTH_TOKEN="<token>" -a <app>
 
 EOF
 
@@ -56,5 +56,6 @@ fly ssh console -a "$FLY_APP" -u agent
 echo ""
 echo "=== Done ==="
 echo ""
-echo "Don't forget to set the Claude Code token as a Fly secret:"
-echo "  fly secrets set CLAUDE_CODE_OAUTH_TOKEN=\"<token>\" -a $FLY_APP"
+echo "Codex OAuth is stored on /data/.codex/auth.json, not as a Fly secret."
+echo "If you also want Anthropic or OpenRouter fallback,"
+echo "set those provider secrets separately with fly secrets set."

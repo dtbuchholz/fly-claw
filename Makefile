@@ -43,7 +43,7 @@ help:
 	@echo "  make fly-logs             Tail remote logs"
 	@echo "  make fly-status           Check remote VM status"
 	@echo "  make fly-console          SSH into remote VM"
-	@echo "  make fly-auth             Set up OAuth for ACP harnesses"
+		@echo "  make fly-auth             Set up Codex OAuth for gateway + ACP, plus optional Claude CLI fallback"
 	@echo "  make fly-codex-auth-reset Remove Codex API-key auth profile on VM (forces OAuth re-login)"
 
 build:

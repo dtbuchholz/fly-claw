@@ -77,7 +77,6 @@ ln -sfn /data/.claude/.claude.json /home/agent/.claude.json
 cat > /data/.env.secrets <<EOF
 export OPENROUTER_API_KEY="${OPENROUTER_API_KEY:-}"
 export ANTHROPIC_API_KEY="${ANTHROPIC_API_KEY:-}"
-export CLAUDE_CODE_OAUTH_TOKEN="${CLAUDE_CODE_OAUTH_TOKEN:-}"
 export OPENAI_API_KEY="${OPENAI_API_KEY:-}"
 export TELEGRAM_BOT_TOKEN="${TELEGRAM_BOT_TOKEN:-}"
 export OPENCLAW_GATEWAY_TOKEN="${OPENCLAW_GATEWAY_TOKEN:-}"
@@ -106,7 +105,7 @@ while IFS='=' read -r key _; do
         PATH|HOME|HOSTNAME|SHELL|USER|PWD|OLDPWD|SHLVL|TERM|LANG|LC_*|_) continue ;;
         DEBIAN_FRONTEND|PUPPETEER_*|CHROMIUM_*|NODE_OPTIONS) continue ;;
         FLY_*|PRIMARY_REGION|LOG_LEVEL) continue ;;
-        TAILSCALE_AUTHKEY|TELEGRAM_ALLOWED_IDS|TELEGRAM_GROUP_IDS|CRON_MODEL|CRON_SYNC_MODE|FORCE_AGENT_CONFIG|CODEX_AUTH_ENFORCEMENT) continue ;;
+        TAILSCALE_AUTHKEY|TELEGRAM_ALLOWED_IDS|TELEGRAM_GROUP_IDS|CRON_MODEL|CRON_LIGHT_MODEL|CRON_SYNC_MODE|FORCE_AGENT_CONFIG|CODEX_AUTH_ENFORCEMENT) continue ;;
     esac
     _extra_secrets+="$(printf 'export %s="%s"\n' "$key" "${!key}")"$'\n'
 done < <(env)
@@ -155,31 +154,37 @@ jq --argjson max_concurrent "$MAX_CONCURRENT" '
     && mv /data/.openclaw/openclaw.json.tmp /data/.openclaw/openclaw.json
 
 # Select default model routing based on available credentials.
-DEFAULT_PRIMARY_MODEL="anthropic/claude-opus-4-6"
-DEFAULT_CRON_MODEL="anthropic/claude-sonnet-4-5"
-DEFAULT_FALLBACK_MODELS_JSON='["openai/gpt-5.3-codex","openai/gpt-5.2-codex","openrouter/openai/gpt-5.2-codex","anthropic/claude-sonnet-4-5"]'
+# Preferred path is ChatGPT/Codex OAuth (`openai-codex/*`), backed by the
+# persisted Codex CLI login on /data. `OPENAI_API_KEY` stays available for
+# voice features only and is never used for gateway model routing.
+DEFAULT_PRIMARY_MODEL="openai-codex/gpt-5.4"
+DEFAULT_CRON_MODEL="openai-codex/gpt-5.4"
+CLAUDE_CLI_AUTH_FILE="/data/.claude/.credentials.json"
+LEGACY_CLAUDE_AUTH_FILE="/data/.claude.json"
+DEFAULT_FALLBACK_MODELS=()
+if [ -f "$CLAUDE_CLI_AUTH_FILE" ] || [ -f "$LEGACY_CLAUDE_AUTH_FILE" ]; then
+    DEFAULT_FALLBACK_MODELS+=("claude-cli/claude-sonnet-4-6")
+fi
+[ -n "${ANTHROPIC_API_KEY:-}" ] && DEFAULT_FALLBACK_MODELS+=("anthropic/claude-opus-4-6")
+[ -n "${OPENROUTER_API_KEY:-}" ] && DEFAULT_FALLBACK_MODELS+=("openrouter/openai/gpt-5.2-codex")
+DEFAULT_FALLBACK_MODELS_JSON="$(printf '%s\n' "${DEFAULT_FALLBACK_MODELS[@]:-}" | jq -R . | jq -s 'map(select(length > 0))')"
 
-if [ -z "${CLAUDE_CODE_OAUTH_TOKEN:-}" ] && [ -z "${ANTHROPIC_API_KEY:-}" ]; then
-    if [ -n "${OPENAI_API_KEY:-}" ]; then
-        DEFAULT_PRIMARY_MODEL="openai/gpt-5.3-codex"
-        DEFAULT_CRON_MODEL="openai/gpt-5.2-codex"
-        DEFAULT_FALLBACK_MODELS_JSON='["openai/gpt-5.2-codex","openrouter/openai/gpt-5.2-codex"]'
-        echo "No Anthropic credentials found; defaulting primary to OpenAI Codex with OpenRouter as secondary fallback."
+if [ ! -f /data/.codex/auth.json ]; then
+    if [ -f "$CLAUDE_CLI_AUTH_FILE" ] || [ -f "$LEGACY_CLAUDE_AUTH_FILE" ]; then
+        DEFAULT_PRIMARY_MODEL="claude-cli/claude-sonnet-4-6"
+        DEFAULT_CRON_MODEL="claude-cli/claude-sonnet-4-6"
+        echo "No Codex OAuth credentials found; defaulting primary to Claude CLI."
+    elif [ -n "${ANTHROPIC_API_KEY:-}" ]; then
+        DEFAULT_PRIMARY_MODEL="anthropic/claude-opus-4-6"
+        DEFAULT_CRON_MODEL="anthropic/claude-opus-4-6"
+        echo "No Codex OAuth credentials found; defaulting primary to Anthropic API."
     elif [ -n "${OPENROUTER_API_KEY:-}" ]; then
         DEFAULT_PRIMARY_MODEL="openrouter/openai/gpt-5.2-codex"
         DEFAULT_CRON_MODEL="openrouter/openai/gpt-5.2-codex"
-        DEFAULT_FALLBACK_MODELS_JSON='[]'
-        echo "No Anthropic/OpenAI credentials found; defaulting primary/cron model to $DEFAULT_PRIMARY_MODEL"
+        echo "No Codex/Anthropic credentials found; defaulting primary to OpenRouter."
     else
-        DEFAULT_FALLBACK_MODELS_JSON='[]'
-        echo "Warning: no Anthropic/OpenAI/OpenRouter credentials found."
+        echo "Warning: no Codex OAuth, Anthropic, or OpenRouter model credentials found."
     fi
-elif [ -z "${OPENAI_API_KEY:-}" ] && [ -z "${OPENROUTER_API_KEY:-}" ]; then
-    DEFAULT_FALLBACK_MODELS_JSON='["anthropic/claude-sonnet-4-5"]'
-elif [ -z "${OPENAI_API_KEY:-}" ]; then
-    DEFAULT_FALLBACK_MODELS_JSON='["openrouter/openai/gpt-5.2-codex","anthropic/claude-sonnet-4-5"]'
-elif [ -z "${OPENROUTER_API_KEY:-}" ]; then
-    DEFAULT_FALLBACK_MODELS_JSON='["openai/gpt-5.3-codex","openai/gpt-5.2-codex","anthropic/claude-sonnet-4-5"]'
 fi
 
 _apply_model_routing_defaults() {
@@ -228,9 +233,25 @@ _patch_agent_settings() {
 _patch_cron_models() {
     local target="$1"
     local model="$2"
-    jq --arg model "$model" '
+    local light_model="$3"
+    jq --arg model "$model" --arg lightModel "$light_model" '
+        [
+            "a1b2c3d4-1111-4000-8000-000000000001",
+            "a1b2c3d4-2222-4000-8000-000000000002",
+            "a1b2c3d4-3333-4000-8000-000000000003",
+            "a1b2c3d4-4444-4000-8000-000000000004",
+            "c355607a-01af-4737-b69e-032710997a46",
+            "a1b2c3d4-5555-4000-8000-000000000005"
+        ] as $repoJobIds |
         .jobs |= map(
-            if (.payload.model // "" | test("^openrouter/")) then .payload.model = $model else . end
+            if (.id != null and ($repoJobIds | index(.id)) != null and .payload.kind == "agentTurn")
+                then .payload.model =
+                    (if .id == "c355607a-01af-4737-b69e-032710997a46"
+                        then $lightModel
+                        else $model
+                     end)
+                else .
+            end
         )
     ' "$target" > "${target}.tmp" && mv "${target}.tmp" "$target"
 }
@@ -278,6 +299,7 @@ _sync_cron_jobs() {
     local seed="$2"
     local mode="$3"
     local model="$4"
+    local light_model="$5"
     if [ ! -f "$target" ]; then
         return 0
     fi
@@ -287,34 +309,35 @@ _sync_cron_jobs() {
             ;;
         models-only)
             echo "Cron sync mode: models-only"
-            _patch_cron_models "$target" "$model"
+            _patch_cron_models "$target" "$model" "$light_model"
             ;;
         upsert-by-id)
             echo "Cron sync mode: upsert-by-id (repo IDs overwrite, custom jobs preserved)"
             _sync_cron_jobs_upsert_by_id "$target" "$seed"
-            _patch_cron_models "$target" "$model"
+            _patch_cron_models "$target" "$model" "$light_model"
             ;;
         replace-all)
             echo "Cron sync mode: replace-all (overwriting live cron config from repo)"
             cp "$seed" "$target"
-            _patch_cron_models "$target" "$model"
+            _patch_cron_models "$target" "$model" "$light_model"
             ;;
         *)
             echo "Warning: unknown CRON_SYNC_MODE='$mode' (expected off|models-only|upsert-by-id|replace-all). Using models-only."
-            _patch_cron_models "$target" "$model"
+            _patch_cron_models "$target" "$model" "$light_model"
             ;;
     esac
 }
 
 CRON_SYNC_MODE="${CRON_SYNC_MODE:-off}"
 CRON_MODEL_EFFECTIVE="${CRON_MODEL:-$DEFAULT_CRON_MODEL}"
+CRON_LIGHT_MODEL_EFFECTIVE="${CRON_LIGHT_MODEL:-$CRON_MODEL_EFFECTIVE}"
 if [ "${FORCE_AGENT_CONFIG:-}" = "1" ]; then
     _patch_agent_settings /data/.openclaw/openclaw.json
 fi
 # Optionally sync cron definitions outside FORCE_AGENT_CONFIG flow.
 # This enables targeted cron updates without forcing all agent config defaults.
 if [ "${CRON_SYNC_MODE:-off}" != "off" ]; then
-    _sync_cron_jobs /data/.openclaw/cron/jobs.json /opt/openclaw/cron/jobs.json "$CRON_SYNC_MODE" "$CRON_MODEL_EFFECTIVE"
+    _sync_cron_jobs /data/.openclaw/cron/jobs.json /opt/openclaw/cron/jobs.json "$CRON_SYNC_MODE" "$CRON_MODEL_EFFECTIVE" "$CRON_LIGHT_MODEL_EFFECTIVE"
 fi
 
 # --- 5. Inject Telegram allowlist + group access ---
@@ -367,11 +390,8 @@ if [ ! -f /data/.openclaw/cron/jobs.json ]; then
     mkdir -p /data/.openclaw/cron
     cp /opt/openclaw/cron/jobs.json /data/.openclaw/cron/jobs.json
     CRON_MODEL="${CRON_MODEL:-$DEFAULT_CRON_MODEL}"
-    # Replace the default Sonnet model with CRON_MODEL; jobs that specify a different model are kept as-is.
-    SEED_MODEL="anthropic/claude-sonnet-4-5"
-    jq --arg model "$CRON_MODEL" --arg seed "$SEED_MODEL" '
-        .jobs |= map(if .payload.model == $seed then .payload.model = $model else . end)
-    ' /data/.openclaw/cron/jobs.json > /tmp/cron.tmp && mv /tmp/cron.tmp /data/.openclaw/cron/jobs.json
+    CRON_LIGHT_MODEL="${CRON_LIGHT_MODEL:-${CRON_LIGHT_MODEL_EFFECTIVE:-$CRON_MODEL}}"
+    _patch_cron_models /data/.openclaw/cron/jobs.json "$CRON_MODEL" "$CRON_LIGHT_MODEL"
 fi
 
 # --- 6c. Seed Claude Code config + OpenClaw workspace skills ---
@@ -504,7 +524,7 @@ if [ "$_state_restored" -eq 1 ]; then
     _apply_model_routing_defaults /data/.openclaw/openclaw.json
     _patch_agent_settings /data/.openclaw/openclaw.json
     # Apply cron sync policy after state restore (restored cron may be stale).
-    _sync_cron_jobs /data/.openclaw/cron/jobs.json /opt/openclaw/cron/jobs.json "${CRON_SYNC_MODE:-models-only}" "$DEFAULT_CRON_MODEL"
+    _sync_cron_jobs /data/.openclaw/cron/jobs.json /opt/openclaw/cron/jobs.json "${CRON_SYNC_MODE:-models-only}" "$DEFAULT_CRON_MODEL" "${CRON_LIGHT_MODEL:-$DEFAULT_CRON_MODEL}"
 fi
 
 # --- 9. Fix permissions ---
@@ -560,37 +580,40 @@ if command -v openclaw >/dev/null 2>&1; then
     openclaw config validate 2>&1 || echo "! Config validation warning (non-fatal on older versions)"
 fi
 
-# --- 12. Onboard API credentials ---
-echo "Registering API credentials..."
-# Primary: Anthropic subscription (setup-token) > Anthropic API key
-anthropic_registered=0
-if [ -n "${CLAUDE_CODE_OAUTH_TOKEN:-}" ]; then
-    # shellcheck disable=SC2016 # $CLAUDE_CODE_OAUTH_TOKEN expands inside su subshell via sourced .env.secrets
-    if su - agent -c 'source /data/.env.secrets && openclaw onboard --non-interactive --accept-risk --skip-ui --skip-daemon --skip-health --skip-channels --skip-search --skip-skills --auth-choice setupToken --token-provider anthropic --token "$CLAUDE_CODE_OAUTH_TOKEN"' \
-        2>&1; then
-        anthropic_registered=1
+# --- 12. Register model credentials ---
+echo "Registering model credentials..."
+if [ -f "$CODEX_AUTH_FILE" ]; then
+    CODEX_OPENCLAW_AUTH_FILE="/data/.openclaw/agents/main/agent/auth-profiles.json"
+    if jq -e '.profiles // {} | to_entries[]? | select(.value.provider == "openai-codex")' "$CODEX_OPENCLAW_AUTH_FILE" >/dev/null 2>&1; then
+        echo "Found existing OpenClaw openai-codex auth profile."
     else
-        echo "Warning: setup-token auth failed; trying Anthropic API key if available."
+        echo "Found Codex CLI OAuth at $CODEX_AUTH_FILE."
+        echo "OpenClaw openai-codex registration is interactive on current upstream builds; skipping automatic registration."
+        echo "Run 'make fly-auth' on first setup to import Codex OAuth into OpenClaw."
     fi
-fi
-if [ "$anthropic_registered" -eq 0 ] && [ -n "${ANTHROPIC_API_KEY:-}" ]; then
-    # shellcheck disable=SC2016 # $ANTHROPIC_API_KEY expands inside su subshell via sourced .env.secrets
-    if su - agent -c 'source /data/.env.secrets && openclaw onboard --non-interactive --accept-risk --skip-ui --skip-daemon --skip-health --skip-channels --skip-search --skip-skills --auth-choice apiKey --token-provider anthropic --token "$ANTHROPIC_API_KEY"' \
-        2>&1; then
-        anthropic_registered=1
-    else
-        echo "Warning: Anthropic API key onboarding failed."
-    fi
-fi
-# Secondary: OpenRouter (always register if present, for non-Anthropic models)
-if [ -n "${OPENROUTER_API_KEY:-}" ]; then
-    # shellcheck disable=SC2016 # $OPENROUTER_API_KEY expands inside su subshell via sourced .env.secrets
-    su - agent -c 'source /data/.env.secrets && openclaw onboard --non-interactive --accept-risk --skip-ui --skip-daemon --skip-health --skip-channels --skip-search --skip-skills --auth-choice apiKey --token-provider openrouter --token "$OPENROUTER_API_KEY"' \
-        2>&1 || true
+else
+    echo "Note: Codex OAuth credentials not found at $CODEX_AUTH_FILE; run make fly-auth to enable openai-codex."
 fi
 
-# Onboarding can mutate model defaults (OpenRouter onboarding sets openrouter/auto).
-# Re-apply model routing policy so Anthropic/OpenAI remain primary when configured.
+if [ -f "$CLAUDE_CLI_AUTH_FILE" ] || [ -f "$LEGACY_CLAUDE_AUTH_FILE" ]; then
+    timeout 60 su - agent -c 'source /data/.env.secrets && openclaw models auth login --provider anthropic --method cli' \
+        2>&1 || echo "Warning: Claude CLI registration failed."
+fi
+
+if [ -n "${ANTHROPIC_API_KEY:-}" ]; then
+    # shellcheck disable=SC2016
+    su - agent -c 'source /data/.env.secrets && openclaw onboard --non-interactive --accept-risk --skip-ui --skip-daemon --skip-health --skip-channels --skip-search --skip-skills --anthropic-api-key "$ANTHROPIC_API_KEY"' \
+        2>&1 || echo "Warning: Anthropic API key onboarding failed."
+fi
+
+if [ -n "${OPENROUTER_API_KEY:-}" ]; then
+    # shellcheck disable=SC2016
+    su - agent -c 'source /data/.env.secrets && openclaw onboard --non-interactive --accept-risk --skip-ui --skip-daemon --skip-health --skip-channels --skip-search --skip-skills --openrouter-api-key "$OPENROUTER_API_KEY"' \
+        2>&1 || echo "Warning: OpenRouter onboarding failed."
+fi
+
+# Onboarding can mutate model defaults.
+# Re-apply model routing policy so Codex remains primary when configured.
 _apply_model_routing_defaults /data/.openclaw/openclaw.json
 
 # --- 13. Start Chromium for browser automation (headless, background) ---
@@ -669,9 +692,9 @@ echo "Scheduling QMD warm-up..."
 ) &
 
 # --- 14. Start gateway (foreground, PID 1) ---
-# OPENAI_API_KEY is kept in the gateway env for TTS/STT and OpenAI-dependent
-# services. The Codex wrapper (/usr/local/bin/codex) unsets it per-invocation
-# so Codex uses OAuth subscription auth instead.
+# OPENAI_API_KEY is kept in the gateway env for TTS/STT/transcription services.
+# The Codex wrapper (/usr/local/bin/codex) unsets it per-invocation so Codex
+# uses OAuth subscription auth instead.
 # Clean stale gateway lock files (may persist if the machine was killed mid-run)
 rm -f -- "$STATE_DIR"/gateway.*.lock
 

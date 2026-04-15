@@ -58,10 +58,6 @@ if [ -n "$SECRETS_JSON" ]; then
     has_secret "OPENCLAW_GATEWAY_TOKEN" || MISSING+=("OPENCLAW_GATEWAY_TOKEN")
     has_secret "TELEGRAM_BOT_TOKEN"     || MISSING+=("TELEGRAM_BOT_TOKEN")
 
-    if ! has_secret "CLAUDE_CODE_OAUTH_TOKEN" && ! has_secret "ANTHROPIC_API_KEY" && ! has_secret "OPENROUTER_API_KEY"; then
-        MISSING+=("CLAUDE_CODE_OAUTH_TOKEN, ANTHROPIC_API_KEY, or OPENROUTER_API_KEY")
-    fi
-
     if [ ${#MISSING[@]} -gt 0 ]; then
         echo ""
         echo "Error: missing required secrets:"
@@ -78,6 +74,11 @@ if [ -n "$SECRETS_JSON" ]; then
     has_secret "TELEGRAM_ALLOWED_IDS" || echo "Warning: TELEGRAM_ALLOWED_IDS not set (bot accepts DMs from anyone)"
     if ! has_secret "GITHUB_TOKEN" && ! has_secret "GH_TOKEN"; then
         echo "Note: GITHUB_TOKEN/GH_TOKEN not set (gh CLI won't work)"
+    fi
+    if ! has_secret "ANTHROPIC_API_KEY" && ! has_secret "OPENROUTER_API_KEY"; then
+        echo "Note: no Anthropic/OpenRouter model fallback secrets found."
+        echo "      This is fine if Codex OAuth is already set up on /data."
+        echo "      On a fresh VM, run 'make fly-auth' after deploy to initialize openai-codex."
     fi
     has_secret "STATE_REPO"            || echo "Note: STATE_REPO not set (state sync disabled)"
 fi

@@ -15,9 +15,11 @@ if [ -f "$ROOT_DIR/.env" ]; then
     set +a
 fi
 
-# Require API credentials (setup-token, Anthropic key, or OpenRouter key)
-if [ -z "${CLAUDE_CODE_OAUTH_TOKEN:-}" ] && [ -z "${ANTHROPIC_API_KEY:-}" ] && [ -z "${OPENROUTER_API_KEY:-}" ]; then
-    echo "Error: Set CLAUDE_CODE_OAUTH_TOKEN, ANTHROPIC_API_KEY, or OPENROUTER_API_KEY in .env"
+# Require model credentials for local sandbox usage.
+# Codex subscription OAuth is wired through the Fly VM path; local sandbox runs
+# still rely on Anthropic/OpenRouter unless you log in manually inside it.
+if [ -z "${ANTHROPIC_API_KEY:-}" ] && [ -z "${OPENROUTER_API_KEY:-}" ]; then
+    echo "Error: Set ANTHROPIC_API_KEY or OPENROUTER_API_KEY in .env for local model access"
     exit 1
 fi
 
@@ -30,9 +32,9 @@ fi
 
 # Select a safe default primary model based on available credentials.
 DEFAULT_PRIMARY_MODEL="anthropic/claude-opus-4-6"
-if [ -z "${CLAUDE_CODE_OAUTH_TOKEN:-}" ] && [ -z "${ANTHROPIC_API_KEY:-}" ] && [ -n "${OPENROUTER_API_KEY:-}" ]; then
+if [ -z "${ANTHROPIC_API_KEY:-}" ] && [ -n "${OPENROUTER_API_KEY:-}" ]; then
     DEFAULT_PRIMARY_MODEL="openrouter/openai/gpt-5.2-codex"
-    echo "No Anthropic credentials found; defaulting primary model to $DEFAULT_PRIMARY_MODEL"
+    echo "No Anthropic API key found; defaulting primary model to $DEFAULT_PRIMARY_MODEL"
 fi
 
 # Build env flags passed to every sandbox exec that runs OpenClaw
@@ -40,7 +42,6 @@ OC_ENV=(
     -e "TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN:-}"
     -e "OPENCLAW_GATEWAY_TOKEN=${OPENCLAW_GATEWAY_TOKEN}"
 )
-[ -n "${CLAUDE_CODE_OAUTH_TOKEN:-}" ] && OC_ENV+=(-e "CLAUDE_CODE_OAUTH_TOKEN=${CLAUDE_CODE_OAUTH_TOKEN}")
 [ -n "${ANTHROPIC_API_KEY:-}" ]      && OC_ENV+=(-e "ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}")
 [ -n "${OPENROUTER_API_KEY:-}" ]     && OC_ENV+=(-e "OPENROUTER_API_KEY=${OPENROUTER_API_KEY}")
 [ -n "${OPENAI_API_KEY:-}" ]         && OC_ENV+=(-e "OPENAI_API_KEY=${OPENAI_API_KEY}")
@@ -113,41 +114,22 @@ docker sandbox exec \
     "$SANDBOX_NAME" \
     openclaw doctor --fix > /dev/null 2>&1 || true
 
-# Register API credentials in agent auth store
-# Primary: Anthropic subscription (setup-token) > Anthropic API key
-anthropic_registered=0
-if [ -n "${CLAUDE_CODE_OAUTH_TOKEN:-}" ]; then
-    echo "Registering Anthropic credentials (setup-token)..."
-    if docker sandbox exec \
-        "${OC_ENV[@]}" \
-        "$SANDBOX_NAME" \
-        openclaw onboard --auth-choice setupToken --token-provider anthropic --token "$CLAUDE_CODE_OAUTH_TOKEN" \
-        > /dev/null 2>&1; then
-        anthropic_registered=1
-    else
-        echo "Warning: setup-token auth failed; trying Anthropic API key if available."
-    fi
-fi
-if [ "$anthropic_registered" -eq 0 ] && [ -n "${ANTHROPIC_API_KEY:-}" ]; then
+# Register model credentials in agent auth store
+if [ -n "${ANTHROPIC_API_KEY:-}" ]; then
     echo "Registering Anthropic credentials (API key)..."
-    if docker sandbox exec \
+    docker sandbox exec \
         "${OC_ENV[@]}" \
         "$SANDBOX_NAME" \
-        openclaw onboard --auth-choice apiKey --token-provider anthropic --token "$ANTHROPIC_API_KEY" \
-        > /dev/null 2>&1; then
-        anthropic_registered=1
-    else
-        echo "Warning: Anthropic API key onboarding failed."
-    fi
+        openclaw onboard --non-interactive --accept-risk --skip-ui --skip-daemon --skip-health --skip-channels --skip-search --skip-skills --anthropic-api-key "$ANTHROPIC_API_KEY" \
+        > /dev/null 2>&1 || echo "Warning: Anthropic API key onboarding failed."
 fi
-# Secondary: OpenRouter (always register if present, for non-Anthropic models)
 if [ -n "${OPENROUTER_API_KEY:-}" ]; then
     echo "Registering OpenRouter credentials..."
     docker sandbox exec \
         "${OC_ENV[@]}" \
         "$SANDBOX_NAME" \
-        openclaw onboard --auth-choice apiKey --token-provider openrouter --token "$OPENROUTER_API_KEY" \
-        > /dev/null 2>&1 || true
+        openclaw onboard --non-interactive --accept-risk --skip-ui --skip-daemon --skip-health --skip-channels --skip-search --skip-skills --openrouter-api-key "$OPENROUTER_API_KEY" \
+        > /dev/null 2>&1 || echo "Warning: OpenRouter onboarding failed."
 fi
 
 # Apply network policy

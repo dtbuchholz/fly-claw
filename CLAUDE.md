@@ -37,19 +37,18 @@ Personal AI assistant (OpenClaw) running in a Docker AI Sandbox (local) or Fly.i
 
 ## Secrets
 
-Secrets live in `.env` (gitignored). They are passed to the sandbox via environment variables, never written to files inside the sandbox. The startup script (`sandbox-up.sh`) also registers API keys in the agent auth store via `openclaw onboard`.
+Secrets live in `.env` (gitignored). They are passed to the sandbox via environment variables, never written to files inside the sandbox. The startup scripts register fallback model providers in OpenClaw's auth store, but the primary Codex subscription login is persisted separately in `/data/.codex/auth.json`.
 
 ## API Provider
 
-Anthropic subscription is the primary provider. OpenAI is the first fallback for Codex models, and OpenRouter is tertiary backup. Set credentials in `.env`:
+Codex OAuth is the primary provider. Anthropic and OpenRouter are fallback model providers. Set credentials as follows:
 
-- **Anthropic subscription (recommended)**: `CLAUDE_CODE_OAUTH_TOKEN=sk-ant-oat-...` — generate with `claude setup-token`. Reuses your Pro/Max plan instead of per-token billing. Model IDs use `anthropic/` prefix (e.g. `anthropic/claude-opus-4-6`). Caveats: no prompt caching, no extended context (200K max), no cost tracking in OpenRouter dashboard.
-- **Direct Anthropic API key**: `ANTHROPIC_API_KEY=sk-ant-...` — same `anthropic/` prefix model IDs. Standard per-token billing with prompt caching and full context support.
-- **OpenRouter (tertiary/backup)**: `OPENROUTER_API_KEY=sk-or-...` — used as backup and for non-Anthropic models not available directly via OpenAI/Anthropic. Model IDs use `openrouter/` prefix (e.g. `openrouter/openai/gpt-5.2-codex`).
+- **Primary: ChatGPT/Codex subscription OAuth** — run `make fly-auth`, then on the VM run `codex login --device-auth` and `openclaw onboard --auth-choice openai-codex`. OpenClaw then uses `openai-codex/gpt-5.4` as the main gateway model, backed by `/data/.codex/auth.json`.
+- **Anthropic fallback**: `ANTHROPIC_API_KEY=sk-ant-...` or Claude CLI auth (`claude auth login` then `openclaw models auth login --provider anthropic --method cli`). Model IDs use `anthropic/` or `claude-cli/`.
+- **OpenRouter fallback**: `OPENROUTER_API_KEY=sk-or-...` — used as the final backup and for models not available through native providers. Model IDs use the `openrouter/` prefix.
+- **OpenAI API key**: `OPENAI_API_KEY=sk-...` — used only for voice features such as TTS/STT/transcription. It is not used for gateway model routing or Codex auth.
 
-Auth priority: setup-token > Anthropic API key > OpenAI API key > OpenRouter. If setup-token onboarding fails and `ANTHROPIC_API_KEY` is present, the scripts automatically fall back to the API key path. The startup policy enforces model routing after onboarding so OpenRouter onboarding cannot reset the default to `openrouter/auto`. The model is configured in `config/openclaw.json` at `agents.defaults.model.primary`.
-
-If Anthropic credentials are missing but `OPENAI_API_KEY` is present, startup scripts use `openai/gpt-5.3-codex` as primary. If both Anthropic and OpenAI credentials are missing, they fall back to `openrouter/openai/gpt-5.2-codex`.
+Auth priority for gateway models: `openai-codex` OAuth > Claude CLI > Anthropic API key > OpenRouter. The startup policy re-applies model routing after onboarding so fallback registration cannot reset the default to `openrouter/auto`. The model is configured in `config/openclaw.json` at `agents.defaults.model.primary`.
 
 ## Context Management
 
@@ -121,10 +120,14 @@ The image includes [Claude Code](https://www.npmjs.com/package/@anthropic-ai/cla
 }
 ```
 
-**Auth:** Each CLI uses OAuth rather than raw API keys. Run `make fly-auth` to set up both:
+**Auth:** Each CLI uses OAuth rather than raw API keys. Run `make fly-auth` to set up the logins:
 
-- **Claude Code** — `claude setup-token` generates a long-lived OAuth token (1 year). Set it as a Fly secret: `CLAUDE_CODE_OAUTH_TOKEN`. The CLI reads this from the environment automatically.
 - **Codex** — `codex login --device-auth` does a device code flow (headless-friendly). Credentials are stored in `~/.codex/auth.json` on the persistent volume, using ChatGPT OAuth with auto-refresh. A wrapper script at `/usr/local/bin/codex` unsets `OPENAI_API_KEY` before invoking `/usr/bin/codex` so the CLI uses OAuth instead of ambient API-key env vars. Startup also enforces non-API-key mode (`CODEX_AUTH_ENFORCEMENT`, default `strip-apikey`) by removing `auth_mode=apikey` profiles and requiring re-login via OAuth.
+- **Claude Code** — optional fallback. Use `claude auth login`, then import it into OpenClaw via `openclaw onboard --auth-choice anthropic-cli`.
+
+OpenClaw provider import is interactive on current upstream builds, so the entrypoint does not try
+to auto-run Codex provider registration at boot. It only detects whether the Codex CLI OAuth file
+is present and leaves the one-time OpenClaw import to `make fly-auth`.
 
 **CLI config:** Each harness has its own config directory, persisted on `/data` and symlinked into the agent home:
 
@@ -182,7 +185,7 @@ Fresh deployments are seeded with 5 default cron jobs. These run inside the Open
 
 **Config:** `config/cron/jobs.json` — uses OpenClaw's native format (`{"version":1,"jobs":[...]}`). Each job has a pre-generated UUID that the gateway preserves.
 
-**Model override:** Jobs default to `anthropic/claude-sonnet-4-5`. Set `CRON_MODEL` as a Fly secret to use a different model (e.g. `CRON_MODEL=anthropic/claude-opus-4-6`). If Anthropic credentials are missing and OpenAI is present, the entrypoint defaults cron to `openai/gpt-5.2-codex`; if both are missing, it uses `openrouter/openai/gpt-5.2-codex` (unless `CRON_MODEL` is explicitly set). `CRON_MODEL` replaces the default Sonnet model in seeded jobs; jobs that specify a different model (e.g. Haiku) are kept as-is. The entrypoint substitutes this at seed time via `jq`.
+**Model override:** Jobs default to `openai-codex/gpt-5.4`. Set `CRON_MODEL` as a Fly secret to override the standard cron lane (for example `CRON_MODEL=anthropic/claude-opus-4-6`). Set `CRON_LIGHT_MODEL` to override the lightweight cron lane, which currently applies to `working-context-snapshot` only (for example `CRON_LIGHT_MODEL=openai-codex/gpt-5.3-codex-spark`). If `CRON_LIGHT_MODEL` is unset, it falls back to `CRON_MODEL`. This keeps the hierarchy explicit without making Spark a hard requirement. If Codex OAuth is unavailable, the entrypoint falls back to Claude CLI, then Anthropic API, then OpenRouter (unless `CRON_MODEL` is explicitly set). The entrypoint substitutes these at seed time via `jq`.
 
 **Seeding behavior:**
 
@@ -223,7 +226,7 @@ Uses [@steipete/summarize](https://github.com/steipete/summarize) to extract and
 
 **Skill:** `config/workspace/skills/summarize/SKILL.md` — loaded by the gateway when `summarize` binary is present (`requires.bins`)
 
-**Environment:** Uses whichever provider is configured (Anthropic subscription or OpenRouter). No additional secrets needed.
+**Environment:** Uses whichever model provider is currently configured. `OPENAI_API_KEY` is only needed for voice features, not summarize itself.
 
 ## Key Commands
 
@@ -241,7 +244,7 @@ make deploy               # Deploy to Fly.io
 make fly-logs             # Tail remote logs
 make fly-status           # Check remote VM status
 make fly-console          # SSH into remote VM
-make fly-auth             # Set up OAuth for ACP harnesses
+make fly-auth             # Set up gateway + ACP OAuth (Codex primary)
 make fly-codex-auth-reset # Remove Codex API-key auth profile on VM and force OAuth re-login
 ```
 
