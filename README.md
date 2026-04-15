@@ -130,10 +130,10 @@ make deploy
 
 **How it works:**
 
-- A background sync loop pushes state to the repo every 30 minutes (no API credits — pure shell)
+- A background sync loop pushes state to the repo once per day by default (no API credits — pure shell)
 - On fresh volume deployments, the entrypoint detects no existing state and restores from the repo
 - Existing volumes are never affected — restore only triggers when `MEMORY.md` is absent
-- Set `STATE_SYNC_INTERVAL` (seconds) to change the sync frequency (default: `1800`)
+- Set `STATE_SYNC_INTERVAL` (seconds) to change the sync frequency (default: `86400`)
 
 **Repo structure:**
 

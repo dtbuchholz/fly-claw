@@ -625,7 +625,7 @@ done
 # Commits and pushes /data/.openclaw directly (no separate clone).
 # STATE_REPO and STATE_SYNC_INTERVAL are available via .env.secrets.
 if [ -n "${STATE_REPO:-}" ]; then
-    SYNC_INTERVAL="${STATE_SYNC_INTERVAL:-1800}"
+    SYNC_INTERVAL="${STATE_SYNC_INTERVAL:-86400}"
     echo "Starting state sync loop (interval: ${SYNC_INTERVAL}s)..."
     (
         while sleep "$SYNC_INTERVAL"; do

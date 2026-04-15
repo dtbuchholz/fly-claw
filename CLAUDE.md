@@ -79,14 +79,14 @@ If `STATE_REPO` is set (as a Fly secret), the remote VM automatically syncs live
 **How it works:**
 
 - On fresh volumes (no `MEMORY.md` found), entrypoint restores state from the repo — workspace, config, cron jobs, and agent data
-- A background loop runs `state-sync.sh` every 30 minutes, pushing changes back to the repo
+- A background loop runs `state-sync.sh` once per day by default, pushing changes back to the repo
 - The persistent clone lives at `/data/state-repo` (shared between restore and sync)
 - Only commits when changes are detected; commit messages include a UTC timestamp
 
 **Env vars (Fly secrets):**
 
 - `STATE_REPO` — SSH URL of the state git repo (e.g. `git@github.com:user/clawd-state.git`). Required to enable sync.
-- `STATE_SYNC_INTERVAL` — Seconds between syncs (default: `1800` / 30 minutes)
+- `STATE_SYNC_INTERVAL` — Seconds between syncs (default: `86400` / 24 hours)
 
 **Prerequisites:** SSH key and git identity must be configured on the VM via `vm-setup.sh` for push access.
 
