@@ -129,9 +129,8 @@
       "id": "c355607a-01af-4737-b69e-032710997a46",
       "name": "working-context-snapshot",
       "schedule": {
-        "kind": "every",
-        "everyMs": 1800000,
-        "anchorMs": 1772933443519
+        "kind": "cron",
+        "expr": "0 7 * * *"
       },
       "enabled": true,
       "payload": {
