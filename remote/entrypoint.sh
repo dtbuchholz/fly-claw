@@ -244,6 +244,22 @@ _patch_cron_models() {
     local model="$2"
     local light_model="$3"
     jq --arg model "$model" --arg lightModel "$light_model" '
+        def patch_jobs($jobs; $repoJobIds):
+            $jobs | map(
+                if (
+                    type == "object" and
+                    (.id as $jobId | $jobId != null and ($repoJobIds | index($jobId)) != null) and
+                    (.payload.kind // null) == "agentTurn"
+                )
+                then .payload.model =
+                    (if .id == "c355607a-01af-4737-b69e-032710997a46"
+                        then $lightModel
+                        else $model
+                     end)
+                else .
+                end
+            );
+
         [
             "a1b2c3d4-1111-4000-8000-000000000001",
             "a1b2c3d4-2222-4000-8000-000000000002",
@@ -252,16 +268,13 @@ _patch_cron_models() {
             "c355607a-01af-4737-b69e-032710997a46",
             "a1b2c3d4-5555-4000-8000-000000000005"
         ] as $repoJobIds |
-        .jobs |= map(
-            if (.id != null and ($repoJobIds | index(.id)) != null and .payload.kind == "agentTurn")
-                then .payload.model =
-                    (if .id == "c355607a-01af-4737-b69e-032710997a46"
-                        then $lightModel
-                        else $model
-                     end)
-                else .
-            end
-        )
+        if type == "array" then
+            patch_jobs(.; $repoJobIds)
+        elif type == "object" then
+            .jobs = patch_jobs((.jobs // []); $repoJobIds)
+        else
+            .
+        end
     ' "$target" > "${target}.tmp" && mv "${target}.tmp" "$target"
 }
 
@@ -269,10 +282,20 @@ _sync_cron_jobs_upsert_by_id() {
     local target="$1"
     local seed="$2"
     jq -s '
+        def job_list:
+            if type == "array" then
+                .
+            elif type == "object" then
+                (.jobs // [])
+            else
+                []
+            end
+            | map(select(type == "object"));
+
         .[0] as $live |
         .[1] as $seed |
-        ($live.jobs // []) as $liveJobs |
-        ($seed.jobs // []) as $seedJobs |
+        ($live | job_list) as $liveJobs |
+        ($seed | job_list) as $seedJobs |
 
         # Build lookup maps for seed jobs
         ($seedJobs | map(select(.id != null)) | map({key: .id, value: .}) | from_entries) as $seedById |
@@ -293,7 +316,7 @@ _sync_cron_jobs_upsert_by_id() {
         )) as $merged |
 
         # Collect all matched IDs and names to detect truly new seed jobs
-        ($merged | [.[].id, .[].name] | map(select(. != null))) as $matchedKeys |
+        ($merged | map(.id, .name) | map(select(. != null))) as $matchedKeys |
         ($seedJobs | map(select(
             (.id as $id | ($matchedKeys | index($id)) == null) and
             (.name as $n | ($matchedKeys | index($n)) == null)
