@@ -144,11 +144,31 @@ else
 fi
 
 # ---------------------------------------------------------------------------
+# 4b. Git HTTPS → SSH rewrite
+# ---------------------------------------------------------------------------
+# ACP sub-agents (Codex, Claude Code) run in sandboxed subprocesses that may
+# not inherit GH_TOKEN, causing `gh auth git-credential` to fail on HTTPS
+# pushes. Rewriting HTTPS → SSH ensures git operations work for any subprocess
+# as long as the SSH key is present — no token forwarding required.
+CURRENT_INSTEAD_OF=$(git config --global url."git@github.com:".insteadOf 2>/dev/null || true)
+if [ "$CURRENT_INSTEAD_OF" = "https://github.com/" ]; then
+    ok "HTTPS → SSH rewrite already configured"
+else
+    if [ -f "$SSH_KEY" ]; then
+        git config --global url."git@github.com:".insteadOf "https://github.com/"
+        ok "Configured HTTPS → SSH rewrite for github.com"
+    else
+        warn "No SSH key — skipping HTTPS → SSH rewrite"
+    fi
+fi
+
+# ---------------------------------------------------------------------------
 # 5. SSH config for GitHub
 # ---------------------------------------------------------------------------
 header "SSH Config"
 
 SSH_CONFIG="$HOME/.ssh/config"
+KNOWN_HOSTS="$HOME/.ssh/known_hosts"
 
 if grep -q 'Host github.com' "$SSH_CONFIG" 2>/dev/null; then
     ok "GitHub SSH config already exists"
@@ -166,6 +186,18 @@ SSHEOF
         ok "Added github.com entry to ~/.ssh/config"
     else
         warn "No SSH key — skipping SSH config"
+    fi
+fi
+
+if [ -f "$SSH_KEY" ]; then
+    mkdir -p "$(dirname "$KNOWN_HOSTS")"
+    touch "$KNOWN_HOSTS"
+    chmod 600 "$KNOWN_HOSTS"
+    if ssh-keygen -F github.com -f "$KNOWN_HOSTS" >/dev/null 2>&1; then
+        ok "GitHub host key already present in known_hosts"
+    else
+        ssh-keyscan github.com >> "$KNOWN_HOSTS" 2>/dev/null
+        ok "Added github.com host key to known_hosts"
     fi
 fi
 

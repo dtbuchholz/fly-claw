@@ -568,6 +568,13 @@ chown -R agent:agent /data/.openclaw /data/.claude /data/.codex /data/.cache /da
 chown -R agent:agent /usr/lib/node_modules/openclaw/extensions/acpx/ 2>/dev/null || true
 chown -R agent:agent /usr/lib/node_modules/openclaw/dist/extensions/acpx/ 2>/dev/null || true
 
+# Ensure GitHub SSH trust + HTTPS → SSH rewrite after ownership is fixed so
+# agent-scoped git config writes succeed on fresh volumes.
+if [ -s /data/.ssh/id_ed25519 ]; then
+    su - agent -c 'mkdir -p ~/.ssh && touch ~/.ssh/known_hosts && chmod 600 ~/.ssh/known_hosts && ssh-keyscan github.com >> ~/.ssh/known_hosts 2>/dev/null' || true
+    su - agent -c 'git config --global url."git@github.com:".insteadOf "https://github.com/"' 2>/dev/null || true
+fi
+
 # --- 10. Tailscale (optional) ---
 if [ -n "${TAILSCALE_AUTHKEY:-}" ]; then
     echo "Starting Tailscale..."
