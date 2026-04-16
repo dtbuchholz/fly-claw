@@ -168,6 +168,7 @@ fi
 header "SSH Config"
 
 SSH_CONFIG="$HOME/.ssh/config"
+KNOWN_HOSTS="$HOME/.ssh/known_hosts"
 
 if grep -q 'Host github.com' "$SSH_CONFIG" 2>/dev/null; then
     ok "GitHub SSH config already exists"
@@ -185,6 +186,18 @@ SSHEOF
         ok "Added github.com entry to ~/.ssh/config"
     else
         warn "No SSH key — skipping SSH config"
+    fi
+fi
+
+if [ -f "$SSH_KEY" ]; then
+    mkdir -p "$(dirname "$KNOWN_HOSTS")"
+    touch "$KNOWN_HOSTS"
+    chmod 600 "$KNOWN_HOSTS"
+    if ssh-keygen -F github.com -f "$KNOWN_HOSTS" >/dev/null 2>&1; then
+        ok "GitHub host key already present in known_hosts"
+    else
+        ssh-keyscan github.com >> "$KNOWN_HOSTS" 2>/dev/null
+        ok "Added github.com host key to known_hosts"
     fi
 fi
 

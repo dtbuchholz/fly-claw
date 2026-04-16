@@ -473,12 +473,6 @@ ln -sfn /data/.ssh /home/agent/.ssh
 ln -sfn /data/git/config /home/agent/.gitconfig
 ln -sfn /data/.gnupg /home/agent/.gnupg
 
-# Ensure HTTPS → SSH rewrite for GitHub so ACP sub-agents (Codex, etc.)
-# can push without needing GH_TOKEN in their environment.
-if [ -s /data/.ssh/id_ed25519 ]; then
-    su - agent -c 'git config --global url."git@github.com:".insteadOf "https://github.com/"' 2>/dev/null || true
-fi
-
 # --- 8. Restore from state repo (fresh volume only) ---
 # If STATE_REPO is set and no MEMORY.md exists, this is likely a fresh volume.
 # Clone the state repo directly into /data/.openclaw — the same dir used for
@@ -521,6 +515,13 @@ chown -R agent:agent /data/.openclaw /data/.claude /data/.codex /data/.cache /da
 # acpx plugin dirs must be owned by agent — OpenClaw blocks world-writable extensions
 chown -R agent:agent /usr/lib/node_modules/openclaw/extensions/acpx/ 2>/dev/null || true
 chown -R agent:agent /usr/lib/node_modules/openclaw/dist/extensions/acpx/ 2>/dev/null || true
+
+# Ensure GitHub SSH trust + HTTPS → SSH rewrite after ownership is fixed so
+# agent-scoped git config writes succeed on fresh volumes.
+if [ -s /data/.ssh/id_ed25519 ]; then
+    su - agent -c 'mkdir -p ~/.ssh && touch ~/.ssh/known_hosts && chmod 600 ~/.ssh/known_hosts && ssh-keyscan github.com >> ~/.ssh/known_hosts 2>/dev/null' || true
+    su - agent -c 'git config --global url."git@github.com:".insteadOf "https://github.com/"' 2>/dev/null || true
+fi
 
 # --- 10. Tailscale (optional) ---
 if [ -n "${TAILSCALE_AUTHKEY:-}" ]; then
