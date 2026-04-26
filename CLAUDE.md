@@ -43,7 +43,7 @@ Secrets live in `.env` (gitignored). They are passed to the sandbox via environm
 
 Codex OAuth is the primary provider. Anthropic and OpenRouter are fallback model providers. Set credentials as follows:
 
-- **Primary: ChatGPT/Codex subscription OAuth** — run `make fly-auth`, then on the VM run `codex login --device-auth` and `openclaw onboard --auth-choice openai-codex`. OpenClaw then uses `openai-codex/gpt-5.5` as the main gateway model with `openai-codex/gpt-5.4` as the same-provider fallback, backed by `/data/.codex/auth.json`.
+- **Primary: ChatGPT/Codex subscription OAuth** — run `make fly-auth`, then on the VM run `codex login --device-auth` and `openclaw onboard --auth-choice openai-codex`. OpenClaw then uses `openai-codex/gpt-5.4` as the main gateway model with `openai-codex/gpt-5.3-codex` as the same-provider fallback, backed by `/data/.codex/auth.json`.
 - **Anthropic fallback**: `ANTHROPIC_API_KEY=sk-ant-...` or Claude CLI auth (`claude auth login` then `openclaw models auth login --provider anthropic --method cli`). Model IDs use `anthropic/` or `claude-cli/`.
 - **OpenRouter fallback**: `OPENROUTER_API_KEY=sk-or-...` — used as the final backup and for models not available through native providers. Model IDs use the `openrouter/` prefix.
 - **OpenAI API key**: `OPENAI_API_KEY=sk-...` — used only for voice features such as TTS/STT/transcription. It is not used for gateway model routing or Codex auth.
@@ -187,7 +187,7 @@ Fresh deployments are seeded with 5 default cron jobs. These run inside the Open
 
 **Config:** `config/cron/jobs.json` — uses OpenClaw's native format (`{"version":1,"jobs":[...]}`). Each job has a pre-generated UUID that the gateway preserves.
 
-**Model override:** Jobs default to `openai-codex/gpt-5.5`. Set `CRON_MODEL` as a Fly secret to override the standard cron lane (for example `CRON_MODEL=anthropic/claude-opus-4-6`). Set `CRON_LIGHT_MODEL` to override the lightweight cron lane, which currently applies to `working-context-snapshot` only (for example `CRON_LIGHT_MODEL=openai-codex/gpt-5.3-codex-spark`). If `CRON_LIGHT_MODEL` is unset, it falls back to `CRON_MODEL`. This keeps the hierarchy explicit without making Spark a hard requirement. If Codex OAuth is unavailable, the entrypoint falls back to Claude CLI, then Anthropic API, then OpenRouter (unless `CRON_MODEL` is explicitly set). The entrypoint substitutes these at seed time via `jq`.
+**Model override:** Jobs default to `openai-codex/gpt-5.3-codex`. Set `CRON_MODEL` as a Fly secret to override the standard cron lane (for example `CRON_MODEL=anthropic/claude-opus-4-6`). Set `CRON_LIGHT_MODEL` to override the lightweight cron lane, which currently applies to `working-context-snapshot` only (for example `CRON_LIGHT_MODEL=openai-codex/gpt-5.3-codex-spark`). If `CRON_LIGHT_MODEL` is unset, it falls back to `CRON_MODEL`. This keeps the hierarchy explicit without making Spark a hard requirement. If Codex OAuth is unavailable, the entrypoint falls back to Claude CLI, then Anthropic API, then OpenRouter (unless `CRON_MODEL` is explicitly set). The entrypoint substitutes these at seed time via `jq`.
 
 **Seeding behavior:**
 

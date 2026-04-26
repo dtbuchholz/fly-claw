@@ -35,20 +35,20 @@
   "agents": {
     "defaults": {
       "model": {
-        "primary": "openai-codex/gpt-5.5",
+        "primary": "openai-codex/gpt-5.4",
         "fallbacks": [
-          "openai-codex/gpt-5.4",
+          "openai-codex/gpt-5.3-codex",
           "anthropic/claude-opus-4-6",
-          "openrouter/openai/gpt-5.4-codex",
+          "openrouter/openai/gpt-5.2-codex",
           "anthropic/claude-sonnet-4-5"
         ]
       },
       "models": {
-        "openai-codex/gpt-5.5": {
+        "openai-codex/gpt-5.4": {
           "alias": "Codex"
         },
-        "openai-codex/gpt-5.4": {
-          "alias": "Codex-5.4"
+        "openai-codex/gpt-5.3-codex": {
+          "alias": "Codex-5.3"
         },
         "anthropic/claude-sonnet-4-5": {
           "alias": "Sonnet"
@@ -71,8 +71,8 @@
         "openrouter/mistralai/mistral-large-2512": {
           "alias": "MistralLarge"
         },
-        "openrouter/openai/gpt-5.4-codex": {
-          "alias": "Codex-OR-5.4"
+        "openrouter/openai/gpt-5.2-codex": {
+          "alias": "Codex-OR-5.2"
         }
       },
       "thinkingDefault": "adaptive",
