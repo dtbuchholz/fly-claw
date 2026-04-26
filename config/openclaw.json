@@ -242,6 +242,11 @@
     },
     "channelHealthCheckMinutes": 120
   },
+  "discovery": {
+    "mdns": {
+      "mode": "off"
+    }
+  },
   "memory": {
     "backend": "qmd",
     "qmd": {
@@ -291,6 +296,9 @@
       },
       "slack": {
         "enabled": true
+      },
+      "bonjour": {
+        "enabled": false
       },
       "acpx": {
         "enabled": true,

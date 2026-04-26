@@ -1,4 +1,4 @@
-FROM debian:bookworm-slim
+FROM debian:trixie-slim
 
 ENV DEBIAN_FRONTEND=noninteractive
 
@@ -46,9 +46,9 @@ RUN curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
     && rm -rf /var/lib/apt/lists/*
 
 # Tailscale
-RUN curl -fsSL https://pkgs.tailscale.com/stable/debian/bookworm.noarmor.gpg \
+RUN curl -fsSL https://pkgs.tailscale.com/stable/debian/trixie.noarmor.gpg \
         > /usr/share/keyrings/tailscale-archive-keyring.gpg \
-    && curl -fsSL https://pkgs.tailscale.com/stable/debian/bookworm.tailscale-keyring.list \
+    && curl -fsSL https://pkgs.tailscale.com/stable/debian/trixie.tailscale-keyring.list \
         > /etc/apt/sources.list.d/tailscale.list \
     && apt-get update && apt-get install -y --no-install-recommends tailscale \
     && rm -rf /var/lib/apt/lists/*
@@ -64,6 +64,7 @@ ENV CHROMIUM_PATH=/usr/bin/chromium
 # Or in CI: --build-arg CACHEBUST=${{ github.sha }}
 ARG CACHEBUST=1
 ENV NODE_LLAMA_CPP_GPU=false
+ENV QMD_LLAMA_GPU=false
 WORKDIR /tmp
 RUN npm install -g openclaw@latest @tobilu/qmd@latest \
     && chmod -R a+w /usr/lib/node_modules/@tobilu/qmd/node_modules/node-llama-cpp/ \
@@ -89,7 +90,17 @@ RUN curl -LsSf https://astral.sh/uv/install.sh | env UV_INSTALL_DIR=/usr/local/b
 # Additional harnesses:
 # - Pi is a lightweight coding-agent CLI we use as a baseline harness for model comparisons.
 # - summarize + ffmpeg + yt-dlp support URL/media summarization workflows.
+ARG CODEX_MIN_VERSION=0.124.0
+ARG CLAUDE_CODE_MIN_VERSION=2.1.108
 RUN npm install -g @anthropic-ai/claude-code@latest @openai/codex@latest \
+    && node -e '\
+const { execSync } = require("node:child_process");\
+const min = { "@openai/codex": process.env.CODEX_MIN_VERSION, "@anthropic-ai/claude-code": process.env.CLAUDE_CODE_MIN_VERSION };\
+const out = execSync("npm list -g --depth=0 --json @openai/codex @anthropic-ai/claude-code", { encoding: "utf8" });\
+const deps = JSON.parse(out).dependencies || {};\
+function cmp(a, b) { const pa = a.split(".").map(Number); const pb = b.split(".").map(Number); for (let i = 0; i < Math.max(pa.length, pb.length); i++) { const da = pa[i] || 0; const db = pb[i] || 0; if (da !== db) return da - db; } return 0; }\
+for (const [name, floor] of Object.entries(min)) { const actual = deps[name]?.version; if (!actual || cmp(actual, floor) < 0) throw new Error(name + " " + (actual || "missing") + " is below required " + floor); console.log(name + " " + actual + " >= " + floor); }\
+' \
     && npm install -g @mariozechner/pi-coding-agent@latest \
     && npm install -g @steipete/summarize@latest \
     && apt-get update && apt-get install -y --no-install-recommends ffmpeg \

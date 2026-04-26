@@ -87,6 +87,8 @@ export GITHUB_EMAIL="${GITHUB_EMAIL:-}"
 export BRAVE_API_KEY="${BRAVE_API_KEY:-}"
 export SLACK_APP_TOKEN="${SLACK_APP_TOKEN:-}"
 export SLACK_BOT_TOKEN="${SLACK_BOT_TOKEN:-}"
+export NODE_LLAMA_CPP_GPU="${NODE_LLAMA_CPP_GPU:-false}"
+export QMD_LLAMA_GPU="${QMD_LLAMA_GPU:-false}"
 export CLAUDE_CONFIG_REPO="${CLAUDE_CONFIG_REPO:-}"
 export CODEX_CONFIG_REPO="${CODEX_CONFIG_REPO:-}"
 export AGENT_EMAIL_ADDRESS="${AGENT_EMAIL_ADDRESS:-}"
@@ -103,7 +105,7 @@ while IFS='=' read -r key _; do
     grep -q "^export ${key}=" /data/.env.secrets 2>/dev/null && continue
     case "$key" in
         PATH|HOME|HOSTNAME|SHELL|USER|PWD|OLDPWD|SHLVL|TERM|LANG|LC_*|_) continue ;;
-        DEBIAN_FRONTEND|PUPPETEER_*|CHROMIUM_*|NODE_OPTIONS) continue ;;
+        DEBIAN_FRONTEND|PUPPETEER_*|CHROMIUM_*|NODE_OPTIONS|NODE_LLAMA_CPP_GPU|QMD_LLAMA_GPU) continue ;;
         FLY_*|PRIMARY_REGION|LOG_LEVEL) continue ;;
         TAILSCALE_AUTHKEY|TELEGRAM_ALLOWED_IDS|TELEGRAM_GROUP_IDS|CRON_MODEL|CRON_LIGHT_MODEL|CRON_SYNC_MODE|FORCE_AGENT_CONFIG|CODEX_AUTH_ENFORCEMENT) continue ;;
     esac
@@ -128,10 +130,12 @@ jq --argjson max_concurrent "$MAX_CONCURRENT" '
     .gateway.bind = "loopback" |
     .gateway.mode = "local" |
     .gateway.auth.mode = "token" |
+    .discovery.mdns.mode = "off" |
     .channels.telegram.enabled = true |
     .channels.slack.enabled = true |
     .plugins.entries.telegram.enabled = true |
     .plugins.entries.slack.enabled = true |
+    .plugins.entries.bonjour.enabled = false |
     .agents.defaults.sandbox.mode = "off" |
     .agents.defaults.maxConcurrent = $max_concurrent |
     .browser.enabled = true |
@@ -604,10 +608,13 @@ fi
 
 # --- 11. Doctor ---
 echo "Running openclaw doctor..."
-su - agent -c 'source /data/.env.secrets && openclaw doctor --fix' 2>&1 || true
+timeout 120 su - agent -c 'source /data/.env.secrets && openclaw doctor --fix' 2>&1 \
+    || echo "Warning: openclaw doctor failed or timed out."
 # Doctor may disable plugins; force telegram + acpx back on
 jq '
     .plugins.entries.telegram.enabled = true |
+    .plugins.entries.bonjour.enabled = false |
+    .discovery.mdns.mode = "off" |
     .plugins.entries.acpx.enabled = true |
     .plugins.entries.acpx.config.permissionMode = "approve-all"
 ' /data/.openclaw/openclaw.json > /data/.openclaw/openclaw.json.tmp \
@@ -617,13 +624,16 @@ chmod 600 /data/.openclaw/openclaw.json
 
 # --- 11b. Enable internal hooks ---
 echo "Enabling hooks..."
-su - agent -c 'source /data/.env.secrets && openclaw hooks enable session-memory' 2>&1 || true
-su - agent -c 'source /data/.env.secrets && openclaw hooks enable boot-md' 2>&1 || true
+timeout 60 su - agent -c 'source /data/.env.secrets && openclaw hooks enable session-memory' 2>&1 \
+    || echo "Warning: session-memory hook enable failed or timed out."
+timeout 60 su - agent -c 'source /data/.env.secrets && openclaw hooks enable boot-md' 2>&1 \
+    || echo "Warning: boot-md hook enable failed or timed out."
 
 # --- 11.5. Validate config ---
 echo "Validating OpenClaw config..."
 if command -v openclaw >/dev/null 2>&1; then
-    openclaw config validate 2>&1 || echo "! Config validation warning (non-fatal on older versions)"
+    timeout 30 su - agent -c 'source /data/.env.secrets && openclaw config validate' 2>&1 \
+        || echo "! Config validation warning or timeout (non-fatal on older versions)"
 fi
 
 # --- 12. Register model credentials ---
@@ -648,19 +658,21 @@ fi
 
 if [ -n "${ANTHROPIC_API_KEY:-}" ]; then
     # shellcheck disable=SC2016
-    su - agent -c 'source /data/.env.secrets && openclaw onboard --non-interactive --accept-risk --skip-ui --skip-daemon --skip-health --skip-channels --skip-search --skip-skills --anthropic-api-key "$ANTHROPIC_API_KEY"' \
+    timeout 120 su - agent -c 'source /data/.env.secrets && openclaw onboard --non-interactive --accept-risk --skip-ui --skip-daemon --skip-health --skip-channels --skip-search --skip-skills --anthropic-api-key "$ANTHROPIC_API_KEY"' \
         2>&1 || echo "Warning: Anthropic API key onboarding failed."
 fi
 
 if [ -n "${OPENROUTER_API_KEY:-}" ]; then
     # shellcheck disable=SC2016
-    su - agent -c 'source /data/.env.secrets && openclaw onboard --non-interactive --accept-risk --skip-ui --skip-daemon --skip-health --skip-channels --skip-search --skip-skills --openrouter-api-key "$OPENROUTER_API_KEY"' \
+    timeout 120 su - agent -c 'source /data/.env.secrets && openclaw onboard --non-interactive --accept-risk --skip-ui --skip-daemon --skip-health --skip-channels --skip-search --skip-skills --openrouter-api-key "$OPENROUTER_API_KEY"' \
         2>&1 || echo "Warning: OpenRouter onboarding failed."
 fi
 
 # Onboarding can mutate model defaults.
 # Re-apply model routing policy so Codex remains primary when configured.
 _apply_model_routing_defaults /data/.openclaw/openclaw.json
+chown agent:agent /data/.openclaw/openclaw.json
+chmod 600 /data/.openclaw/openclaw.json
 
 # --- 13. Start Chromium for browser automation (headless, background) ---
 echo "Starting Chromium (headless)..."
@@ -712,10 +724,26 @@ QMD_XDG='export XDG_CONFIG_HOME="/data/.openclaw/agents/main/qmd/xdg-config" && 
 QMD_WARMUP_TIMEOUT_SEC="${QMD_WARMUP_TIMEOUT_SEC:-900}"
 QMD_SEARCH_WARMUP_TIMEOUT_SEC="${QMD_SEARCH_WARMUP_TIMEOUT_SEC:-60}"
 QMD_WARMUP_LOCK="/data/.openclaw/state/qmd-warmup.lock"
+QMD_MODELS_DIR="/data/.openclaw/agents/main/qmd/xdg-cache/qmd/models"
+if { [ -e "$QMD_MODELS_DIR" ] || [ -L "$QMD_MODELS_DIR" ]; } && [ ! -d "$QMD_MODELS_DIR" ]; then
+    rm -f "$QMD_MODELS_DIR"
+fi
+mkdir -p \
+    /data/.openclaw/state \
+    /data/.openclaw/agents/main/qmd/xdg-config \
+    "$QMD_MODELS_DIR"
+chown -R agent:agent /data/.openclaw/agents/main/qmd /data/.openclaw/state
 echo "Scheduling QMD warm-up..."
 (
     sleep 30
-    mkdir -p /data/.openclaw/state
+    if { [ -e "$QMD_MODELS_DIR" ] || [ -L "$QMD_MODELS_DIR" ]; } && [ ! -d "$QMD_MODELS_DIR" ]; then
+        rm -f "$QMD_MODELS_DIR"
+    fi
+    mkdir -p \
+        /data/.openclaw/state \
+        /data/.openclaw/agents/main/qmd/xdg-config \
+        "$QMD_MODELS_DIR"
+    chown -R agent:agent /data/.openclaw/agents/main/qmd /data/.openclaw/state
     if ! (set -o noclobber; echo "$$" >"$QMD_WARMUP_LOCK") 2>/dev/null; then
         echo "$(date -u +%FT%T) QMD warm-up already running; skipping" >>/data/logs/qmd-warmup.log
         exit 0

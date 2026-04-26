@@ -9,7 +9,7 @@
 
 ## VM Environment
 
-- **Platform:** Fly.io — Debian 12 (bookworm), `shared-cpu-4x`
+- **Platform:** Fly.io — Debian 13 (trixie), `shared-cpu-4x`
 - **CPU:** 4 vCPU (shared, AMD EPYC)
 - **RAM:** 8GB (~6.5GB available after OS + gateway + browser)
 - **Persistent volume:** `/data` (10GB), symlinked to `~/.openclaw`

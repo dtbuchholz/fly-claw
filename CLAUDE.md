@@ -15,7 +15,7 @@ Personal AI assistant (OpenClaw) running in a Docker AI Sandbox (local) or Fly.i
 
 ### Remote (Fly.io)
 
-- `remote/Dockerfile` - Standalone image (debian:bookworm-slim + Node 22 + Chromium + Tailscale + OpenClaw)
+- `remote/Dockerfile` - Standalone image (debian:trixie-slim + Node 22 + Chromium + Tailscale + OpenClaw)
 - `remote/entrypoint.sh` - VM init: secrets, config injection, optional Tailscale, state sync, gateway startup
 - `remote/state-sync.sh` - Periodic sync of live state (`/data/.openclaw`) to a remote git repo
 - `remote/fly.toml.example` - Fly.io config template with `{{APP_NAME}}`/`{{REGION}}` placeholders; sets `NODE_ENV=production` and `OPENCLAW_STATE_DIR=/data/.openclaw` in `[env]`
