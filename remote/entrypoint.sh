@@ -227,6 +227,10 @@ _patch_agent_settings() {
             then .agents.defaults.subagents.thinking = $seed.agents.defaults.subagents.thinking
             else .
          end) |
+        (if ($seed.agents.defaults.subagents.runTimeoutSeconds != null)
+            then .agents.defaults.subagents.runTimeoutSeconds = $seed.agents.defaults.subagents.runTimeoutSeconds
+            else .
+         end) |
         (if $seed.agents.defaults.contextTokens != null
             then .agents.defaults.contextTokens = $seed.agents.defaults.contextTokens
             else .

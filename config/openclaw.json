@@ -127,7 +127,7 @@
       "maxConcurrent": 4,
       "subagents": {
         "maxConcurrent": 8,
-        "runTimeoutSeconds": 3600,
+        "runTimeoutSeconds": 14400,
         "thinking": "high"
       },
       "sandbox": {
