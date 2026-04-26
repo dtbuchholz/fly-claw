@@ -163,8 +163,8 @@ agent-state/
 ### Model
 
 Set in `config/openclaw.json` at `agents.defaults.model.primary`. The repo now defaults to
-`openai-codex/gpt-5.4`, which uses ChatGPT/Codex OAuth through OpenClaw's native `openai-codex`
-provider. Anthropic API models use `anthropic/`, Claude CLI models use `claude-cli/`, and
+`openai-codex/gpt-5.4`, with `openai-codex/gpt-5.3-codex` as the same-provider fallback.
+It uses ChatGPT/Codex OAuth through OpenClaw's native `openai-codex` provider. Anthropic API models use `anthropic/`, Claude CLI models use `claude-cli/`, and
 OpenRouter models use `openrouter/`. This repo does not use `OPENAI_API_KEY` for model routing.
 Run `make reset`
 (local) or `make deploy` (remote) to apply.
@@ -184,7 +184,7 @@ Example:
 
 ```bash
 fly secrets set \
-  CRON_MODEL='openai-codex/gpt-5.4' \
+  CRON_MODEL='openai-codex/gpt-5.3-codex' \
   CRON_LIGHT_MODEL='openai-codex/gpt-5.3-codex-spark' \
   -a my-clawd
 make deploy-cron-upsert

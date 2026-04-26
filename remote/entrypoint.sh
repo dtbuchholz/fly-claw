@@ -158,10 +158,13 @@ jq --argjson max_concurrent "$MAX_CONCURRENT" '
 # persisted Codex CLI login on /data. `OPENAI_API_KEY` stays available for
 # voice features only and is never used for gateway model routing.
 DEFAULT_PRIMARY_MODEL="openai-codex/gpt-5.4"
-DEFAULT_CRON_MODEL="openai-codex/gpt-5.4"
+DEFAULT_CRON_MODEL="openai-codex/gpt-5.3-codex"
 CLAUDE_CLI_AUTH_FILE="/data/.claude/.credentials.json"
 LEGACY_CLAUDE_AUTH_FILE="/data/.claude.json"
 DEFAULT_FALLBACK_MODELS=()
+if [ -f /data/.codex/auth.json ]; then
+    DEFAULT_FALLBACK_MODELS+=("openai-codex/gpt-5.3-codex")
+fi
 if [ -f "$CLAUDE_CLI_AUTH_FILE" ] || [ -f "$LEGACY_CLAUDE_AUTH_FILE" ]; then
     DEFAULT_FALLBACK_MODELS+=("claude-cli/claude-sonnet-4-6")
 fi
@@ -222,6 +225,10 @@ _patch_agent_settings() {
          end) |
         (if ($seed.agents.defaults.subagents.thinking != null)
             then .agents.defaults.subagents.thinking = $seed.agents.defaults.subagents.thinking
+            else .
+         end) |
+        (if ($seed.agents.defaults.subagents.runTimeoutSeconds != null)
+            then .agents.defaults.subagents.runTimeoutSeconds = $seed.agents.defaults.subagents.runTimeoutSeconds
             else .
          end) |
         (if $seed.agents.defaults.contextTokens != null
