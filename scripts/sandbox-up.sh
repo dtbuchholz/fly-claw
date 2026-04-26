@@ -33,7 +33,7 @@ fi
 # Select a safe default primary model based on available credentials.
 DEFAULT_PRIMARY_MODEL="anthropic/claude-opus-4-6"
 if [ -z "${ANTHROPIC_API_KEY:-}" ] && [ -n "${OPENROUTER_API_KEY:-}" ]; then
-    DEFAULT_PRIMARY_MODEL="openrouter/openai/gpt-5.2-codex"
+    DEFAULT_PRIMARY_MODEL="openrouter/openai/gpt-5.4-codex"
     echo "No Anthropic API key found; defaulting primary model to $DEFAULT_PRIMARY_MODEL"
 fi
 

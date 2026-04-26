@@ -157,16 +157,19 @@ jq --argjson max_concurrent "$MAX_CONCURRENT" '
 # Preferred path is ChatGPT/Codex OAuth (`openai-codex/*`), backed by the
 # persisted Codex CLI login on /data. `OPENAI_API_KEY` stays available for
 # voice features only and is never used for gateway model routing.
-DEFAULT_PRIMARY_MODEL="openai-codex/gpt-5.4"
-DEFAULT_CRON_MODEL="openai-codex/gpt-5.4"
+DEFAULT_PRIMARY_MODEL="openai-codex/gpt-5.5"
+DEFAULT_CRON_MODEL="openai-codex/gpt-5.5"
 CLAUDE_CLI_AUTH_FILE="/data/.claude/.credentials.json"
 LEGACY_CLAUDE_AUTH_FILE="/data/.claude.json"
 DEFAULT_FALLBACK_MODELS=()
+if [ -f /data/.codex/auth.json ]; then
+    DEFAULT_FALLBACK_MODELS+=("openai-codex/gpt-5.4")
+fi
 if [ -f "$CLAUDE_CLI_AUTH_FILE" ] || [ -f "$LEGACY_CLAUDE_AUTH_FILE" ]; then
     DEFAULT_FALLBACK_MODELS+=("claude-cli/claude-sonnet-4-6")
 fi
 [ -n "${ANTHROPIC_API_KEY:-}" ] && DEFAULT_FALLBACK_MODELS+=("anthropic/claude-opus-4-6")
-[ -n "${OPENROUTER_API_KEY:-}" ] && DEFAULT_FALLBACK_MODELS+=("openrouter/openai/gpt-5.2-codex")
+[ -n "${OPENROUTER_API_KEY:-}" ] && DEFAULT_FALLBACK_MODELS+=("openrouter/openai/gpt-5.4-codex")
 DEFAULT_FALLBACK_MODELS_JSON="$(printf '%s\n' "${DEFAULT_FALLBACK_MODELS[@]:-}" | jq -R . | jq -s 'map(select(length > 0))')"
 
 if [ ! -f /data/.codex/auth.json ]; then
@@ -179,8 +182,8 @@ if [ ! -f /data/.codex/auth.json ]; then
         DEFAULT_CRON_MODEL="anthropic/claude-opus-4-6"
         echo "No Codex OAuth credentials found; defaulting primary to Anthropic API."
     elif [ -n "${OPENROUTER_API_KEY:-}" ]; then
-        DEFAULT_PRIMARY_MODEL="openrouter/openai/gpt-5.2-codex"
-        DEFAULT_CRON_MODEL="openrouter/openai/gpt-5.2-codex"
+        DEFAULT_PRIMARY_MODEL="openrouter/openai/gpt-5.4-codex"
+        DEFAULT_CRON_MODEL="openrouter/openai/gpt-5.4-codex"
         echo "No Codex/Anthropic credentials found; defaulting primary to OpenRouter."
     else
         echo "Warning: no Codex OAuth, Anthropic, or OpenRouter model credentials found."
